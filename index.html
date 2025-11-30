@@ -3,528 +3,759 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PlaneaciÃ³n Semanal 24-28 Noviembre</title>
+    <title>Control de ProducciÃ³n - Cirineo 2025</title>
+    
+    <!-- React y ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    
+    <!-- Babel para procesar JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Calibri:wght@400;700&family=Arial:wght@400;700&display=swap');
-
-        :root {
-            --primary-red: #9D2449; /* Burgundy Mexico Government */
-            --primary-gold: #B38E5D;
-            --text-dark: #000000;
-            --border-color: #000000;
-        }
-
-        body {
-            font-family: 'Calibri', 'Arial', sans-serif;
-            font-size: 11pt;
-            color: var(--text-dark);
-            background-color: #f5f5f5; /* Light gray background for screen */
-            margin: 0;
-            padding: 20px;
-            line-height: 1.3;
-        }
-
-        .page-container {
-            background-color: white;
-            width: 21.59cm; /* Letter size width */
-            min-height: 27.94cm; /* Letter size height */
-            margin: 0 auto;
-            padding: 1.5cm; /* Margins */
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-            box-sizing: border-box;
-            position: relative;
-        }
-
-        /* Header Layout */
-        .header-logos {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-            height: 80px;
-        }
-
-        .logo-box {
-            width: 250px;
-            height: 70px;
-            border: 1px dashed #ccc;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #999;
-            font-size: 10pt;
-            background-color: #fafafa;
-        }
-
-        .header-titles {
-            text-align: center;
-            font-weight: bold;
-            margin-bottom: 15px;
-            font-size: 12pt;
-        }
-
-        .header-titles h1, .header-titles h2 {
-            margin: 2px 0;
-            font-size: 11pt;
-            font-weight: bold;
-        }
-
-        /* Info Grid */
-        .info-grid {
-            width: 100%;
-            margin-bottom: 15px;
-            font-size: 10pt;
-        }
+        /* Estilos de la tabla y scrollbar */
+        .custom-scrollbar::-webkit-scrollbar { height: 8px; width: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
         
-        .info-row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 4px;
+        /* DefiniciÃ³n de anchos para la cabecera responsiva */
+        .machine-col {
+            min-width: 100px; /* Ancho por defecto (contraÃ­do) */
+            width: 100px;
         }
-
-        .field {
-            display: flex;
-            align-items: baseline;
-        }
-
-        .label {
-            font-weight: bold;
-            margin-right: 5px;
-        }
-
-        .value {
-            border-bottom: 1px solid black;
-            padding: 0 5px;
-            flex-grow: 1;
-        }
-
-        /* Main Table */
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
-            font-size: 10pt;
-        }
-
-        th, td {
-            border: 1px solid black;
-            padding: 5px;
-            vertical-align: top;
-        }
-
-        th {
-            background-color: #f0f0f0;
-            font-weight: bold;
-            text-align: center;
-        }
-
-        .col-actividad { width: 15%; text-align: center; font-weight: bold; }
-        .col-desc { width: 65%; }
-        .col-mat { width: 20%; }
-
-        .day-header {
-            background-color: #e0e0e0;
-            font-weight: bold;
-            text-align: center;
-            padding: 5px;
-            border: 1px solid black;
-            margin-top: 10px;
-        }
-
-        .section-title {
-            font-weight: bold;
-            text-decoration: underline;
-            margin-bottom: 4px;
-            display: block;
-        }
-
-        .bold { font-weight: bold; }
-        
-        .observations {
-            margin-top: 30px;
-            border-top: 1px solid black;
-            padding-top: 10px;
-        }
-
-        .lines {
-            line-height: 2;
-            text-decoration: underline;
-            text-decoration-style: solid;
-            text-decoration-color: #ccc;
-        }
-
-        /* Print specific styles */
-        @media print {
-            body {
-                background-color: white;
-                margin: 0;
-                padding: 0;
-            }
-            .page-container {
-                box-shadow: none;
-                margin: 0;
-                width: 100%;
-                page-break-after: always;
-            }
-            .logo-box {
-                border: 1px solid #ddd; /* Lighter border for print */
-                color: transparent; /* Hide text placeholder on print */
-            }
+        .machine-col.expanded {
+            min-width: 180px; /* Ancho expandido para mostrar detalles */
+            width: 180px;
         }
     </style>
 </head>
-<body>
+<body class="bg-slate-100 text-slate-800">
 
-    <div class="page-container">
+    <div id="root"></div>
+
+    <script type="text/babel" data-type="module">
+        // Importar Firebase
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        import { getFirestore, collection, doc, setDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        const { useState, useEffect, useMemo, useCallback } = React;
+
+        // ==========================================
+        // CONFIGURACIÃN E INICIALIZACIÃN DE FIREBASE
+        // ==========================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyBqHgV4vDat1-VmZfKbiPg7nuiX-ROcexw",
+            authDomain: "cirineo-cec21.firebaseapp.com",
+            projectId: "cirineo-cec21",
+            storageBucket: "cirineo-cec21.firebasestorage.app",
+            messagingSenderId: "620210618284",
+            appId: "1:620210618284:web:482bab9bf74650fff18409",
+            measurementId: "G-B7YLM78RVW"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // ==========================================
+        // ROLES Y USUARIOS
+        // ==========================================
+        const ROLES = {
+            ADMIN: 'admin', // Marco: PlanificaciÃ³n, Lectura/Escritura total
+            COMMENTATOR: 'commentator', // Prisciliano: Lectura total, Comentarios R/W
+            OBSERVER: 'observer', // Susana: Lectura solo semana actual
+            OPERATOR: 'operator', // Operadores: Solo Escritura en producciÃ³n real
+            GUEST: 'guest',
+        };
+
+        const USERS = {
+            '1111': { name: 'Marco Espinoza', role: ROLES.ADMIN, id: 'marco' },
+            '0000': { name: 'Prisciliano Espinoza', role: ROLES.COMMENTATOR, id: 'prisciliano' },
+            '2222': { name: 'Susana', role: ROLES.OBSERVER, id: 'susana' },
+            '3333': { name: 'Operadores', role: ROLES.OPERATOR, id: 'operadores' },
+        };
         
-        <!-- Header Images Placeholders -->
-        <div class="header-logos">
-            <div class="logo-box">[Logos Gobierno / SEP]</div>
-            <div class="logo-box" style="width: 150px;">[Logo CONAFE]</div>
-        </div>
+        // ==========================================
+        // DATOS DE MÃQUINAS Y FILAS
+        // ==========================================
+        const MACHINES = [
+            { id: 'm35', name: 'MAQ 35', type: 'SANTONI SM8 TOP 2V', diam: 16, needles: 1440, gauge: 28 },
+            { id: 'm39', name: 'MAQ 39', type: 'SANTONI SM8 TOP 2V', diam: 16, needles: 1440, gauge: 28 },
+            { id: 'm40', name: 'MAQ 40', type: 'SANTONI SM8 TOP 2V', diam: 16, needles: 1440, gauge: 28 },
+            { id: 'm36', name: 'MAQ 36', type: 'CIXING GE82', diam: 15, needles: 1344, gauge: 28 },
+            { id: 'm38', name: 'MAQ 38', type: 'SANTONI SM8 TOP 2V', diam: 15, needles: 1344, gauge: 28 },
+            { id: 'm37', name: 'MAQ 37', type: 'SANTONI SM8 TOP 2V', diam: 15, needles: 1344, gauge: 28 },
+            { id: 'm29', name: 'MAQ 29', type: 'SANTONI SM8 EVO 4', diam: 16, needles: 1296, gauge: 26 },
+            { id: 'm28', name: 'MAQ 28', type: 'SANTONI SM8 EVO 4', diam: 16, needles: 1296, gauge: 26 },
+            { id: 'm27', name: 'MAQ 27', type: 'SANTONI SM8 EVO 4', diam: 15, needles: 1248, gauge: 26 },
+            { id: 'm33', name: 'MAQ 33', type: 'SANTONI SM8 EVO 4', diam: 15, needles: 1344, gauge: 28 },
+            { id: 'm1',  name: 'MAQ 1',  type: 'CIXING', diam: 14, needles: 1248, gauge: 28 },
+            { id: 'm30', name: 'MAQ 30', type: 'CIXING GE82', diam: 14, needles: 1248, gauge: 28 },
+            { id: 'm31', name: 'MAQ 31', type: 'CIXING GE82', diam: 14, needles: 1248, gauge: 28 },
+            { id: 'm6',  name: 'MAQ 6',  type: 'CIXING GE82', diam: 14, needles: 1248, gauge: 28 },
+            { id: 'm32', name: 'MAQ 32', type: 'CIXING GE82', diam: 14, needles: 1248, gauge: 28 },
+            { id: 'm13', name: 'MAQ 13', type: 'SANTONI SM8 EVO 4', diam: 13, needles: 1056, gauge: 26 },
+            { id: 'm12', name: 'MAQ 12', type: 'SANTONI SM8 EVO 4', diam: 13, needles: 1056, gauge: 26 },
+            { id: 'm24', name: 'MAQ 24', type: 'SANTONI SM8 EVO 4', diam: 13, needles: 1056, gauge: 26 },
+            { id: 'm8',  name: 'MAQ 8',  type: 'SANTONI SM8 TOP 2', diam: 13, needles: 1152, gauge: 28 },
+        ];
 
-        <!-- Header Text -->
-        <div class="header-titles">
-            CONSEJO NACIONAL DE FOMENTO EDUCATIVO<br>
-            ORGANIZACIÃN DE TIEMPOS PEDAGÃGICOS<br>
-            REGION VI, VALLE DE SANTIAGO<br>
-            CICLO 2024-2025
-        </div>
+        const INITIAL_ROWS = [
+            'MIERCOLES 12', 'JUEVES 13', 'VIERNES 14', 
+            'LUNES 17', 'MARTES 18', 'MIERCOLES 19', 
+            'JUEVES 20', 'VIERNES 21'
+        ];
 
-        <!-- Info Fields -->
-        <div class="info-grid">
-            <div class="info-row">
-                <div class="field" style="width: 30%;">
-                    <span class="label">COMUNIDAD:</span>
-                    <span class="value">ZAPOTITOS</span>
+        // Definimos la "Semana Actual" para el observador (simplificaciÃ³n)
+        const CURRENT_WEEK_DATES = INITIAL_ROWS.slice(0, 5); // MIERCOLES 12 a MARTES 18
+
+        // ==========================================
+        // CÃLCULO DE PRODUCCIÃN (FUNCIÃN CENTRAL)
+        // ==========================================
+
+        /**
+         * Calcula el objetivo de piezas y el porcentaje de cumplimiento.
+         * @param {number} targetQty - Cantidad total a tejer del modelo (e.g., 2500).
+         * @param {number} timeMin - Tiempo por pieza en minutos (e.g., 6).
+         * @param {number} hours - Horas planeadas de trabajo (e.g., 12 o 24).
+         * @param {number} actualQty - ProducciÃ³n real (e.g., 500).
+         * @returns {object} { targetPieces, percentage }
+         */
+        const calculateProduction = (targetQty, timeMin, hours, actualQty) => {
+            if (!targetQty || !timeMin || !hours || targetQty <= 0 || timeMin <= 0 || hours <= 0) {
+                return { targetPieces: 0, percentage: 0 };
+            }
+            
+            // 1. Horas a Minutos
+            const totalMinutes = hours * 60;
+            
+            // 2. ProducciÃ³n mÃ¡xima de la mÃ¡quina en esas horas
+            // targetQty: 2500 (total a producir)
+            // timeMin: 6 min/pieza
+            // totalMinutes: 1440 min (24h)
+            
+            // ProducciÃ³n total posible en las horas planeadas
+            const piecesPossible = totalMinutes / timeMin;
+            
+            // El objetivo diario es el MÃNIMO entre lo que la mÃ¡quina PUEDE producir y lo que QUEDA del pedido.
+            // Para el cÃ¡lculo simple, usaremos el total de piezas / (dÃ­as restantes * horas planeadas / 24)
+            // Ya que no tenemos el contexto de "dÃ­as restantes", usaremos la fÃ³rmula de piezas posibles por dÃ­a planeado.
+            const targetPieces = Math.round(piecesPossible); // Objetivo diario basado en el tiempo.
+
+            // Porcentaje de cumplimiento
+            const percentage = targetPieces > 0 
+                ? Math.min(100, (actualQty / targetPieces) * 100) 
+                : 0;
+
+            return { targetPieces: targetPieces, percentage: parseFloat(percentage.toFixed(1)) };
+        };
+
+        // ==========================================
+        // COMPONENTES DE UI
+        // ==========================================
+
+        const MachineIconImage = ({ className }) => {
+            const [hasError, setHasError] = useState(false);
+            const imageUrl = "https://raw.githubusercontent.com/jesusvn1993mplvt3-ai/CIRINEO/refs/heads/main/icon.png";
+            
+            if (hasError) {
+                return (
+                    <div className="w-full h-full flex items-center justify-center bg-gray-200 rounded-lg text-xs text-gray-500 font-semibold p-1">
+                        <i data-lucide="alert-circle" className="w-4 h-4 mr-1"></i> IMG
+                    </div>
+                );
+            }
+
+            return (
+                <img 
+                    src={imageUrl} 
+                    alt="Icono de MÃ¡quina Santoni" 
+                    className={className + " object-contain"}
+                    onError={() => setHasError(true)}
+                />
+            );
+        };
+        
+        const MachineHeader = ({ machine, isExpanded, onClick }) => {
+            return (
+                <th 
+                    key={machine.id} 
+                    className={`machine-col ${isExpanded ? 'expanded' : ''} p-0 border-r border-slate-100 align-top group transition-[width] duration-300 ease-in-out`}
+                >
+                    <button 
+                        onClick={() => onClick(machine.id)}
+                        className={`w-full h-full flex flex-col items-center gap-1 p-2 transition-colors duration-200 ${isExpanded ? 'bg-blue-50 hover:bg-blue-100' : 'bg-slate-50 hover:bg-slate-100'} focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-md`}
+                    >
+                        {/* 1. Icono */}
+                        <div className="w-8 h-8 md:w-10 md:h-10 transform group-hover:scale-110 transition-transform duration-300">
+                            <MachineIconImage className="w-full h-full text-slate-700" />
+                        </div>
+                        
+                        {/* 2. Nombre de MÃ¡quina */}
+                        <span className="font-bold text-blue-700 text-sm whitespace-nowrap">
+                            {machine.name.replace('MAQ ', '')}
+                        </span>
+                        
+                        {/* 3. Detalles (Solo visibles si estÃ¡ expandido) */}
+                        <div className={`text-[10px] text-slate-500 font-normal leading-tight text-center overflow-hidden transition-all duration-300 ${isExpanded ? 'max-h-24 opacity-100 pt-1' : 'max-h-0 opacity-0'}`}>
+                            {machine.type.replace('SANTONI', '')}<br/>
+                            {machine.diam}" - {machine.needles}ag<br/>
+                            G{machine.gauge}
+                            <i data-lucide="chevrons-up" className="w-3 h-3 text-red-400 mt-1"></i>
+                        </div>
+                        
+                        {/* 4. Indicador de ExpansiÃ³n/ContracciÃ³n (flecha) */}
+                        {!isExpanded && (
+                             <i data-lucide="chevrons-down" className="w-3 h-3 text-green-400 mt-1"></i>
+                        )}
+                        
+                    </button>
+                </th>
+            );
+        };
+        
+        const LoginScreen = ({ setAuthenticatedUser }) => {
+            const [pin, setPin] = useState('');
+            const [error, setError] = useState('');
+
+            const handleLogin = (e) => {
+                e.preventDefault();
+                setError('');
+                const user = USERS[pin];
+
+                if (user) {
+                    setAuthenticatedUser(user);
+                    // Limpiar PIN despuÃ©s de un login exitoso (seguridad)
+                    setPin(''); 
+                } else {
+                    setError('PIN incorrecto. IntÃ©ntalo de nuevo.');
+                }
+            };
+
+            return (
+                <div className="flex items-center justify-center h-screen bg-slate-50">
+                    <div className="w-full max-w-sm p-6 bg-white rounded-xl shadow-2xl border border-slate-200">
+                        <div className="flex flex-col items-center mb-6">
+                            <div className="bg-blue-600 p-3 rounded-xl text-white mb-3 shadow-lg">
+                                <i data-lucide="lock" className="w-8 h-8"></i>
+                            </div>
+                            <h2 className="text-2xl font-bold text-slate-800">Acceso Cirineo ProducciÃ³n</h2>
+                            <p className="text-sm text-slate-500">Introduce tu PIN de seguridad</p>
+                        </div>
+                        <form onSubmit={handleLogin} className="space-y-4">
+                            <div>
+                                <input
+                                    type="password"
+                                    placeholder="----"
+                                    maxLength="4"
+                                    value={pin}
+                                    onChange={(e) => setPin(e.target.value)}
+                                    className="w-full p-4 text-center text-3xl font-mono tracking-widest border-2 border-slate-300 rounded-xl focus:border-blue-500 focus:ring-blue-500 transition duration-150"
+                                    required
+                                />
+                                {error && (
+                                    <p className="mt-2 text-sm text-red-600 font-medium text-center">{error}</p>
+                                )}
+                            </div>
+                            <button
+                                type="submit"
+                                className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition duration-200 shadow-md shadow-blue-300 disabled:opacity-50"
+                                disabled={pin.length !== 4}
+                            >
+                                Ingresar
+                            </button>
+                        </form>
+                        <div className="mt-6 pt-4 border-t text-xs text-slate-400 text-center">
+                            
+                        </div>
+                    </div>
                 </div>
-                <div class="field" style="width: 30%;">
-                    <span class="label">MUNICIPIO:</span>
-                    <span class="value">YURIRIA GTO</span>
-                </div>
-                <div class="field" style="width: 20%;">
-                    <span class="label">PROGRAMA:</span>
-                    <span class="value">PREESCOLAR</span>
-                </div>
-                <div class="field" style="width: 18%;">
-                    <span class="label">C.C.T:</span>
-                    <span class="value">11KJN0218T</span>
-                </div>
-            </div>
-            <div class="info-row">
-                <div class="field" style="width: 48%;">
-                    <span class="label">EC:</span>
-                    <span class="value">MARIO ULISES VALLEJO NAVARRETE</span>
-                </div>
-                <div class="field" style="width: 50%;">
-                    <span class="label">ECA:</span>
-                    <span class="value">ARELI JOSSELIN HERNANDEZ RANGEL</span>
-                </div>
-            </div>
-            <div class="info-row">
-                <div class="field" style="width: 100%;">
-                    <span class="label">FECHA:</span>
-                    <span class="value">24 AL 28 DE NOVIEMBRE DEL 2025</span>
-                </div>
-            </div>
-            <div class="info-row" style="margin-top: 10px;">
-                 <div class="field" style="width: 100%;">
-                    <span class="label">PropÃ³sito:</span>
-                    <span class="value" style="height: auto; min-height: 20px;">
-                        "Reconocimiento del cuerpo humano y sus funciones bÃ¡sicas, exploraciÃ³n de los 5 sentidos mediante experimentaciÃ³n sensorial y fomento de hÃ¡bitos de higiene personal."
-                    </span>
-                </div>
-            </div>
-        </div>
+            );
+        };
 
-        <!-- Content Table - LUNES -->
-        <table>
-            <thead>
-                <tr>
-                    <th class="col-actividad">Actividad</th>
-                    <th class="col-desc">DescripciÃ³n y propÃ³sitos:</th>
-                    <th class="col-mat">Material</th>
-                </tr>
-            </thead>
-            <tbody>
-                <!-- LUNES -->
-                <tr>
-                    <td class="day-header" colspan="3">LUNES</td>
-                </tr>
-                <tr>
-                    <td class="col-actividad">Bienvenida</td>
-                    <td class="col-desc">
-                        <span class="section-title">Honores a la bandera</span>
-                        <strong>PropÃ³sito:</strong> Fomentar el respeto a los sÃ­mbolos patrios e identidad nacional.<br>
-                        <strong>DescripciÃ³n:</strong> RealizaciÃ³n del acto cÃ­vico semanal, entonaciÃ³n del Himno Nacional Mexicano y menciÃ³n de efemÃ©rides de la semana.<br>
-                        <em>EfemÃ©rides:</em><br>
-                        - 24 de noviembre: Aniversario luctuoso de Diego Rivera (1957).<br>
-                        - 25 de noviembre: DÃ­a Internacional de la EliminaciÃ³n de la Violencia contra la Mujer.<br>
-                        <strong>Pase de lista:</strong> Se proporciona una hoja con forma de mano para que el alumno la salude y pegue en el mural de asistencia.
-                    </td>
-                    <td class="col-mat">
-                        Bandera, Himno Nacional (audio), Hoja con forma de mano, Cinta adhesiva.
-                    </td>
-                </tr>
-                <tr>
-                    <td class="col-actividad">RelaciÃ³n tutora</td>
-                    <td class="col-desc">
-                        <span class="section-title">"Mi cuerpo maravilloso"</span>
-                        <strong>Campo Formativo:</strong> Saberes y Pensamiento CientÃ­fico<br>
-                        <strong>Destreza cultural:</strong> IdentificaciÃ³n de las partes externas del cuerpo humano.<br>
-                        <strong>PropÃ³sito:</strong> El niÃ±o identificarÃ¡ las partes principales de su cuerpo (cabeza, tronco, extremidades) y sus funciones.<br>
-                        <strong>Inicio:</strong> Se canta "Cabeza, hombros, rodillas y pies" seÃ±alando las partes. Se pregunta Â¿Para quÃ© sirven las manos? Â¿Y los pies?<br>
-                        <strong>Desarrollo:</strong> "Siluetas gigantes". Un alumno se acuesta sobre papel bond y el tutor traza su silueta. DespuÃ©s, el alumno debe identificar y dibujar lo que le falta (ojos, boca, ropa).<br>
-                        <strong>Cierre:</strong> Se nombran las partes seÃ±aladas en su dibujo y se pegan en la pared del aula.
-                    </td>
-                    <td class="col-mat">
-                        Papel bond grande o kraft, Marcadores, Crayolas, CanciÃ³n temÃ¡tica.
-                    </td>
-                </tr>
-                <tr>
-                    <td class="col-actividad">Estaciones, Rincones y juego libre</td>
-                    <td class="col-desc">
-                        <span class="section-title">"Armando el cuerpo"</span>
-                        <strong>PropÃ³sito:</strong> CoordinaciÃ³n visomotriz al ensamblar partes de una figura humana.<br>
-                        <strong>DescripciÃ³n:</strong> Uso de rompecabezas sencillos del cuerpo humano.<br>
-                        <strong>Inicio:</strong> Se muestran las piezas separadas (cabeza, brazos, piernas, tronco).<br>
-                        <strong>Desarrollo:</strong> Los alumnos arman el rompecabezas en equipos o individualmente, nombrando cada pieza al colocarla.<br>
-                        <strong>Cierre:</strong> Pegan su rompecabezas armado en una hoja de color.
-                    </td>
-                    <td class="col-mat">
-                        Rompecabezas de cartÃ³n o impresos, Pegamento.
-                    </td>
-                </tr>
-            </tbody>
-        </table>
+        const PlanningModal = ({ machine, rowId, currentData, onClose, onSave }) => {
+            const [model, setModel] = useState(currentData?.plan_model || '');
+            const [targetQty, setTargetQty] = useState(currentData?.plan_target_qty || '');
+            const [timeMin, setTimeMin] = useState(currentData?.plan_time_min || '');
+            const [hours, setHours] = useState(currentData?.plan_hours || 12); // Default 12h
 
-        <div class="observations">
-            <strong>Observaciones pedagÃ³gicas del dÃ­a para la mejora continua:</strong><br>
-            ________________________________________________________________________________________________________________________<br>
-            ________________________________________________________________________________________________________________________<br>
-            ________________________________________________________________________________________________________________________
-        </div>
-    </div>
+            const handleSave = () => {
+                const data = {
+                    plan_model: model || null,
+                    plan_target_qty: Number(targetQty) || null,
+                    plan_time_min: Number(timeMin) || null,
+                    plan_hours: Number(hours) || null,
+                };
+                onSave(rowId, machine.id, data);
+                onClose();
+            };
 
-    <!-- Page 2: Martes & Miercoles -->
-    <div class="page-container" style="margin-top: 20px;">
-        <table>
-            <thead>
-                <tr>
-                    <th class="col-actividad">Actividad</th>
-                    <th class="col-desc">DescripciÃ³n y propÃ³sitos:</th>
-                    <th class="col-mat">Material</th>
-                </tr>
-            </thead>
-            <tbody>
-                <!-- MARTES -->
-                <tr>
-                    <td class="day-header" colspan="3">MARTES</td>
-                </tr>
-                <tr>
-                    <td class="col-actividad">Bienvenida</td>
-                    <td class="col-desc">
-                        <span class="section-title">âEl Rey pide...â</span>
-                        <strong>PropÃ³sito:</strong> ActivaciÃ³n fÃ­sica y reconocimiento de partes del cuerpo.<br>
-                        <strong>DescripciÃ³n:</strong> Juego donde el EC pide "tocar la nariz", "saltar en un pie", "tocar la cabeza de un compaÃ±ero".<br>
-                        <strong>Pase de lista:</strong> Colocar su nombre en el "vagÃ³n del tren" de la asistencia.
-                    </td>
-                    <td class="col-mat">
-                        Lista de asistencia (tren).
-                    </td>
-                </tr>
-                <tr>
-                    <td class="col-actividad">RelaciÃ³n tutora</td>
-                    <td class="col-desc">
-                        <span class="section-title">"Explorando con mis sentidos: Vista y Tacto"</span>
-                        <strong>Campo Formativo:</strong> Saberes y Pensamiento CientÃ­fico<br>
-                        <strong>Destreza cultural:</strong> Uso de los sentidos para explorar el entorno.<br>
-                        <strong>PropÃ³sito:</strong> Diferenciar texturas y colores usando la vista y el tacto.<br>
-                        <strong>Inicio:</strong> Se presenta una "Caja misteriosa". Â¿CÃ³mo podemos saber quÃ© hay adentro sin abrirla? (Tacto).<br>
-                        <strong>Desarrollo:</strong> Se tocan objetos dentro de la caja (suave, rugoso, duro). Luego se sacan y se describen sus colores (Vista).<br>
-                        <strong>Cierre:</strong> Clasifican objetos del salÃ³n en "Suaves" y "Duros".
-                    </td>
-                    <td class="col-mat">
-                        Caja de cartÃ³n, Objetos variados (peluche, piedra, lija, algodÃ³n), Cestas para clasificar.
-                    </td>
-                </tr>
-                <tr>
-                    <td class="col-actividad">Estaciones</td>
-                    <td class="col-desc">
-                        <span class="section-title">Modelado de figuras</span>
-                        <strong>PropÃ³sito:</strong> EstimulaciÃ³n sensorial tÃ¡ctil y motricidad fina.<br>
-                        <strong>DescripciÃ³n:</strong> ManipulaciÃ³n de plastilina para crear figuras humanas.<br>
-                        <strong>Inicio:</strong> Amasar libremente para calentar los dedos.<br>
-                        <strong>Desarrollo:</strong> Crear "gusanitos" para hacer brazos y piernas, y "bolitas" para la cabeza.<br>
-                        <strong>Cierre:</strong> ExposiciÃ³n de sus "muÃ±ecos" de plastilina en la mesa.
-                    </td>
-                    <td class="col-mat">
-                        Plastilina de colores, Tablas de apoyo.
-                    </td>
-                </tr>
+            const { targetPieces, percentage } = calculateProduction(
+                Number(targetQty), 
+                Number(timeMin), 
+                Number(hours), 
+                currentData?.actual || 0
+            );
 
-                <!-- MIERCOLES -->
-                <tr>
-                    <td class="day-header" colspan="3">MIÃRCOLES</td>
-                </tr>
-                <tr>
-                    <td class="col-actividad">Bienvenida</td>
-                    <td class="col-desc">
-                        <span class="section-title">Regalo de lectura</span>
-                        <strong>PropÃ³sito:</strong> Fomento a la lectura y escucha activa.<br>
-                        <strong>DescripciÃ³n:</strong> Lectura del cuento "Los cinco sentidos de Nacho" (o similar).<br>
-                        <strong>Pase de lista:</strong> Saludo con una parte del cuerpo diferente (codo, pie, cadera).
-                    </td>
-                    <td class="col-mat">
-                        Libro de cuentos ilustrado.
-                    </td>
-                </tr>
-                <tr>
-                    <td class="col-actividad">RelaciÃ³n tutora</td>
-                    <td class="col-desc">
-                        <span class="section-title">"Explorando con mis sentidos: OÃ­do y Olfato"</span>
-                        <strong>Campo Formativo:</strong> Saberes y Pensamiento CientÃ­fico<br>
-                        <strong>PropÃ³sito:</strong> Identificar sonidos del entorno y aromas comunes.<br>
-                        <strong>Inicio:</strong> "Juego del silencio". Cerrar los ojos y escuchar. Â¿QuÃ© oÃ­mos? (pÃ¡jaros, autos, viento).<br>
-                        <strong>Desarrollo:</strong> "Frascos de olores". Se presentan frascos con aromas (cafÃ©, jabÃ³n, fruta, vinagre). Los niÃ±os huelen y tratan de adivinar quÃ© es.<br>
-                        <strong>Cierre:</strong> Dibujar lo que mÃ¡s les gustÃ³ oler y lo que no les gustÃ³.
-                    </td>
-                    <td class="col-mat">
-                        Frascos pequeÃ±os, CafÃ©, LimÃ³n, Canela, JabÃ³n, Hojas blancas, Colores.
-                    </td>
-                </tr>
-                 <tr>
-                    <td class="col-actividad">Desarrollo Personal</td>
-                    <td class="col-desc">
-                        <span class="section-title">Lenguajes: "Las vocales de mi cuerpo"</span>
-                        <strong>PropÃ³sito:</strong> RelaciÃ³n fonÃ©tica con partes del cuerpo.<br>
-                        <strong>DescripciÃ³n:</strong> Identificar vocales en palabras del cuerpo (O-jo, U-Ã±a, O-re-ja).<br>
-                        <strong>Inicio:</strong> Repaso de vocales en el pizarrÃ³n.<br>
-                        <strong>Desarrollo:</strong> Buscar en revistas imÃ¡genes de ojos, orejas, uÃ±as y pegarlas junto a la vocal correspondiente.<br>
-                        <strong>Cierre:</strong> Repaso grupal de las palabras encontradas.
-                    </td>
-                    <td class="col-mat">
-                        Revistas viejas, Tijeras, Pegamento, PizarrÃ³n.
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-         <div class="observations">
-            <strong>Observaciones pedagÃ³gicas del dÃ­a para la mejora continua:</strong><br>
-            ________________________________________________________________________________________________________________________<br>
-            ________________________________________________________________________________________________________________________
-        </div>
-    </div>
+            return (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+                    <div 
+                        className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all duration-300 scale-100"
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <div className="p-5 border-b flex justify-between items-center bg-blue-600 text-white">
+                            <h3 className="text-xl font-bold">PlanificaciÃ³n: {machine.name} - {rowId}</h3>
+                            <button onClick={onClose} className="p-1 rounded-full hover:bg-blue-700 transition"><i data-lucide="x" className="w-5 h-5"></i></button>
+                        </div>
+                        <div className="p-5 space-y-4">
+                            
+                            <div className="grid grid-cols-2 gap-4">
+                                <label className="block">
+                                    <span className="text-sm font-medium text-slate-700">Modelo (Ej: B001 M)</span>
+                                    <input
+                                        type="text"
+                                        value={model}
+                                        onChange={(e) => setModel(e.target.value)}
+                                        className="mt-1 w-full p-2 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    />
+                                </label>
+                                <label className="block">
+                                    <span className="text-sm font-medium text-slate-700">Cantidad Total Pedido</span>
+                                    <input
+                                        type="number"
+                                        value={targetQty}
+                                        onChange={(e) => setTargetQty(e.target.value)}
+                                        className="mt-1 w-full p-2 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    />
+                                </label>
+                            </div>
 
-    <!-- Page 3: Jueves & Viernes -->
-    <div class="page-container" style="margin-top: 20px;">
-        <table>
-            <thead>
-                <tr>
-                    <th class="col-actividad">Actividad</th>
-                    <th class="col-desc">DescripciÃ³n y propÃ³sitos:</th>
-                    <th class="col-mat">Material</th>
-                </tr>
-            </thead>
-            <tbody>
-                <!-- JUEVES -->
-                <tr>
-                    <td class="day-header" colspan="3">JUEVES</td>
-                </tr>
-                <tr>
-                    <td class="col-actividad">Bienvenida</td>
-                    <td class="col-desc">
-                        <span class="section-title">"Adivina quiÃ©n soy"</span>
-                        <strong>PropÃ³sito:</strong> IntegraciÃ³n grupal y descripciÃ³n fÃ­sica.<br>
-                        <strong>DescripciÃ³n:</strong> Un alumno describe a un compaÃ±ero (tiene pelo corto, ojos negros...) y los demÃ¡s adivinan.<br>
-                         <strong>Pase de lista:</strong> Dibujar una carita feliz junto a su nombre.
-                    </td>
-                    <td class="col-mat">
-                        Lista de asistencia.
-                    </td>
-                </tr>
-                <tr>
-                    <td class="col-actividad">RelaciÃ³n tutora</td>
-                    <td class="col-desc">
-                        <span class="section-title">"El sentido del Gusto y la Higiene"</span>
-                        <strong>Campo Formativo:</strong> De lo Humano y lo Comunitario<br>
-                        <strong>PropÃ³sito:</strong> Reconocer sabores bÃ¡sicos y la importancia de lavarse los dientes.<br>
-                        <strong>Inicio:</strong> DiÃ¡logo sobre quÃ© comieron hoy. Â¿Era dulce o salado?<br>
-                        <strong>Desarrollo:</strong> DegustaciÃ³n pequeÃ±a (azÃºcar, sal, limÃ³n). Hacer muecas segÃºn el sabor. Charla sobre el cuidado de la boca y dientes despuÃ©s de comer.<br>
-                        <strong>Cierre:</strong> PrÃ¡ctica de la tÃ©cnica correcta de lavado de manos y simulaciÃ³n de lavado de dientes.
-                    </td>
-                    <td class="col-mat">
-                        Muestras de alimentos (limÃ³n, sal, azÃºcar), Cepillo de dientes (o imagen), JabÃ³n.
-                    </td>
-                </tr>
-                <tr>
-                    <td class="col-actividad">Estaciones</td>
-                    <td class="col-desc">
-                        <span class="section-title">"Ensartando Cuentas"</span>
-                        <strong>PropÃ³sito:</strong> Motricidad fina y creaciÃ³n de patrones.<br>
-                        <strong>DescripciÃ³n:</strong> Hacer collares siguiendo una secuencia de colores.<br>
-                        <strong>Inicio:</strong> Observar un patrÃ³n simple (Rojo-Azul-Rojo).<br>
-                        <strong>Desarrollo:</strong> Los alumnos ensartan cuentas en hilo grueso o agujetas siguiendo el patrÃ³n.<br>
-                        <strong>Cierre:</strong> Comparar los collares y contar cuÃ¡ntas cuentas usaron.
-                    </td>
-                    <td class="col-mat">
-                        Cuentas grandes de colores/Sopa pintada, Hilo grueso o agujetas.
-                    </td>
-                </tr>
+                            <div className="grid grid-cols-2 gap-4">
+                                <label className="block">
+                                    <span className="text-sm font-medium text-slate-700">Tiempo por pieza (min)</span>
+                                    <input
+                                        type="number"
+                                        value={timeMin}
+                                        onChange={(e) => setTimeMin(e.target.value)}
+                                        className="mt-1 w-full p-2 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    />
+                                </label>
+                                <label className="block">
+                                    <span className="text-sm font-medium text-slate-700">Horas de trabajo (12/24)</span>
+                                    <select
+                                        value={hours}
+                                        onChange={(e) => setHours(e.target.value)}
+                                        className="mt-1 w-full p-2 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    >
+                                        <option value={12}>12 horas</option>
+                                        <option value={24}>24 horas</option>
+                                    </select>
+                                </label>
+                            </div>
+                            
+                            <div className="border-t pt-4 mt-4 space-y-2">
+                                <p className="font-bold text-slate-800">CÃ¡lculos Diarios:</p>
+                                <div className="flex justify-between p-3 bg-slate-50 rounded-lg">
+                                    <span className="font-medium text-slate-600">Objetivo de Piezas (DÃ­a)</span>
+                                    <span className="font-black text-green-700 text-lg">{targetPieces.toLocaleString()}</span>
+                                </div>
+                                <div className="flex justify-between p-3 bg-slate-50 rounded-lg">
+                                    <span className="font-medium text-slate-600">ProducciÃ³n Actual</span>
+                                    <span className="font-black text-blue-700 text-lg">{currentData?.actual?.toLocaleString() || 0}</span>
+                                </div>
+                                <div className="flex justify-between p-3 bg-slate-200 rounded-lg">
+                                    <span className="font-bold text-slate-800">Cumplimiento (%)</span>
+                                    <span 
+                                        className={`font-black text-xl ${percentage >= 100 ? 'text-green-600' : percentage > 70 ? 'text-orange-500' : 'text-red-500'}`}
+                                    >
+                                        {percentage}%
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="p-4 bg-slate-50 flex justify-end">
+                            <button
+                                onClick={handleSave}
+                                className="bg-green-600 text-white py-2 px-4 rounded-lg font-semibold hover:bg-green-700 transition shadow-md"
+                            >
+                                Guardar PlanificaciÃ³n
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+        
+        // ==========================================
+        // COMPONENTE PRINCIPAL
+        // ==========================================
 
-                <!-- VIERNES -->
-                <tr>
-                    <td class="day-header" colspan="3">VIERNES</td>
-                </tr>
-                 <tr>
-                    <td class="col-actividad">Bienvenida</td>
-                    <td class="col-desc">
-                        <span class="section-title">DÃ­a de Desayuno Compartido</span>
-                        <strong>PropÃ³sito:</strong> Fomentar hÃ¡bitos alimenticios saludables.<br>
-                        <strong>DescripciÃ³n:</strong> Los alumnos traen un alimento nutritivo. Se dialoga sobre cÃ³mo la comida ayuda al cuerpo a crecer fuerte.<br>
-                        <strong>Pase de lista:</strong> Colorear la fruta que mÃ¡s les gusta en la hoja de asistencia.
-                    </td>
-                    <td class="col-mat">
-                        Alimentos preparados por familias, Platos, Vasos.
-                    </td>
-                </tr>
-                <tr>
-                    <td class="col-actividad">RelaciÃ³n tutora</td>
-                    <td class="col-desc">
-                        <span class="section-title">"Feria de los Sentidos (IntegraciÃ³n)"</span>
-                        <strong>Campo Formativo:</strong> Saberes y Pensamiento CientÃ­fico<br>
-                        <strong>PropÃ³sito:</strong> Reforzar lo aprendido durante la semana sobre el cuerpo y sentidos.<br>
-                        <strong>Inicio:</strong> Recordar los 5 sentidos vistos (Vista, OÃ­do, Olfato, Gusto, Tacto).<br>
-                        <strong>Desarrollo:</strong> Circuito sensorial. EstaciÃ³n 1: Ver con lupa. EstaciÃ³n 2: Tocar texturas. EstaciÃ³n 3: Oler frascos. EstaciÃ³n 4: Escuchar cascabeles.<br>
-                        <strong>Cierre:</strong> CÃ­rculo de diÃ¡logo: Â¿QuÃ© sentido usaron mÃ¡s? Â¿CuÃ¡l les gustÃ³ mÃ¡s?
-                    </td>
-                    <td class="col-mat">
-                        Materiales usados en la semana (Lupas, texturas, frascos, instrumentos).
-                    </td>
-                </tr>
-                <tr>
-                    <td class="col-actividad">Desarrollo Personal</td>
-                    <td class="col-desc">
-                        <span class="section-title">EducaciÃ³n FÃ­sica: "Mi cuerpo en movimiento"</span>
-                        <strong>PropÃ³sito:</strong> Control corporal y equilibrio.<br>
-                        <strong>DescripciÃ³n:</strong> Circuito motriz en el patio.<br>
-                        <strong>Inicio:</strong> Calentamiento articular.<br>
-                        <strong>Desarrollo:</strong> Caminar sobre una lÃ­nea (equilibrio), saltar aros con dos pies, gatear bajo una cuerda.<br>
-                        <strong>Cierre:</strong> Ejercicios de respiraciÃ³n y relajaciÃ³n sintiendo los latidos del corazÃ³n.
-                    </td>
-                    <td class="col-mat">
-                        Gis/Tiza, Aros, Cuerda.
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-         <div class="observations">
-            <strong>Observaciones pedagÃ³gicas del dÃ­a para la mejora continua:</strong><br>
-            ________________________________________________________________________________________________________________________<br>
-            ________________________________________________________________________________________________________________________
-        </div>
-    </div>
+        const App = () => {
+            const [firebaseUser, setFirebaseUser] = useState(null); // Usuario de Firebase
+            const [authenticatedUser, setAuthenticatedUser] = useState(null); // Usuario con rol y PIN
+            const [productionData, setProductionData] = useState({});
+            const [loading, setLoading] = useState(true);
+            const [savingStatus, setSavingStatus] = useState('idle');
+            const [expandedMachineId, setExpandedMachineId] = useState(null);
+            const [planningModal, setPlanningModal] = useState(null); // {machineId, rowId}
 
+            // Toggle para expandir/contraer la columna
+            const toggleExpansion = (machineId) => {
+                setExpandedMachineId(currentId => currentId === machineId ? null : machineId);
+            };
+
+            // Cargar Iconos Lucide
+            useEffect(() => {
+                if (window.lucide) window.lucide.createIcons();
+            });
+
+            // AutenticaciÃ³n AnÃ³nima (Necesaria para Firestore, pero el PIN controla el acceso a la UI)
+            useEffect(() => {
+                const unsubscribe = onAuthStateChanged(auth, setFirebaseUser);
+                signInAnonymously(auth).catch((error) => {
+                    console.error("Error Auth:", error);
+                });
+                return () => unsubscribe();
+            }, []);
+
+            // Escuchar Datos en Tiempo Real
+            useEffect(() => {
+                if (!firebaseUser) return;
+
+                // Usaremos una colecciÃ³n genÃ©rica para la data anidada
+                const q = collection(db, 'produccion_2025');
+                
+                const unsubscribe = onSnapshot(q, (snapshot) => {
+                    const data = {};
+                    snapshot.forEach((doc) => {
+                        data[doc.id] = doc.data();
+                    });
+                    setProductionData(data);
+                    setLoading(false);
+                }, (error) => {
+                    console.error("Error obteniendo datos:", error);
+                    setLoading(false);
+                });
+
+                return () => unsubscribe();
+            }, [firebaseUser]);
+
+            /**
+             * Guarda los cambios de producciÃ³n real o planificaciÃ³n.
+             * @param {string} rowId - Fecha (ej: 'LUNES 17')
+             * @param {string} machineId - ID de mÃ¡quina (ej: 'm30')
+             * @param {string} field - Campo a actualizar ('actual', 'plan_model', etc.)
+             * @param {any} value - Nuevo valor
+             */
+            const handleUpdateField = useCallback(async (rowId, machineId, field, value) => {
+                if (!authenticatedUser || authenticatedUser.role === ROLES.OBSERVER) return;
+
+                setSavingStatus('saving');
+                try {
+                    const docRef = doc(db, 'produccion_2025', rowId);
+                    
+                    let updateData = {
+                        [`${machineId}.${field}`]: value
+                    };
+
+                    // Si es un cambio de planificaciÃ³n, recalcula y actualiza los campos calculados
+                    if (field.startsWith('plan_') || field === 'actual') {
+                        const currentMachineData = productionData[rowId]?.[machineId] || {};
+                        const plan_target_qty = field === 'plan_target_qty' ? value : currentMachineData.plan_target_qty;
+                        const plan_time_min = field === 'plan_time_min' ? value : currentMachineData.plan_time_min;
+                        const plan_hours = field === 'plan_hours' ? value : currentMachineData.plan_hours;
+                        const actualQty = field === 'actual' ? value : currentMachineData.actual;
+
+                        const { targetPieces, percentage } = calculateProduction(
+                            plan_target_qty, plan_time_min, plan_hours, actualQty
+                        );
+                        
+                        updateData[`${machineId}.calculated_target`] = targetPieces;
+                        updateData[`${machineId}.percentage`] = percentage;
+                    }
+                    
+                    await setDoc(docRef, updateData, { merge: true });
+                    setSavingStatus('saved');
+                    setTimeout(() => setSavingStatus('idle'), 2000);
+
+                } catch (err) {
+                    console.error("Error guardando:", err);
+                    setSavingStatus('error');
+                }
+            }, [authenticatedUser, productionData]);
+
+            /**
+             * Maneja el guardado desde el modal de planificaciÃ³n.
+             * @param {string} rowId - Fecha
+             * @param {string} machineId - ID de mÃ¡quina
+             * @param {object} planningData - Objeto con los nuevos campos de planificaciÃ³n
+             */
+            const handleSavePlanning = useCallback(async (rowId, machineId, planningData) => {
+                if (authenticatedUser.role !== ROLES.ADMIN) return;
+
+                setSavingStatus('saving');
+                try {
+                    const docRef = doc(db, 'produccion_2025', rowId);
+                    
+                    let updateData = {};
+                    const currentMachineData = productionData[rowId]?.[machineId] || {};
+                    const actualQty = currentMachineData.actual || 0;
+                    
+                    // Aplicar la nueva data
+                    const mergedData = { ...currentMachineData, ...planningData };
+
+                    const { targetPieces, percentage } = calculateProduction(
+                        mergedData.plan_target_qty, mergedData.plan_time_min, mergedData.plan_hours, actualQty
+                    );
+                    
+                    updateData[machineId] = {
+                        ...mergedData,
+                        actual: actualQty, // Asegurar que el actual se mantenga
+                        calculated_target: targetPieces,
+                        percentage: percentage,
+                    };
+
+                    await setDoc(docRef, updateData, { merge: true });
+                    setSavingStatus('saved');
+                    setTimeout(() => setSavingStatus('idle'), 2000);
+
+                } catch (err) {
+                    console.error("Error guardando planificaciÃ³n:", err);
+                    setSavingStatus('error');
+                }
+            }, [authenticatedUser, productionData]);
+
+
+            if (!authenticatedUser) {
+                return <LoginScreen setAuthenticatedUser={setAuthenticatedUser} />;
+            }
+            
+            if (loading) {
+                return (
+                    <div className="flex items-center justify-center h-screen bg-slate-50 text-slate-600">
+                        <div className="flex flex-col items-center gap-4">
+                            <i data-lucide="loader-2" className="w-10 h-10 animate-spin text-blue-600"></i>
+                            <p>Cargando datos de producciÃ³n...</p>
+                        </div>
+                    </div>
+                );
+            }
+            
+            // FILTRADO DE FILAS PARA OBSERVADOR
+            const visibleRows = authenticatedUser.role === ROLES.OBSERVER 
+                ? INITIAL_ROWS.filter(row => CURRENT_WEEK_DATES.includes(row)) 
+                : INITIAL_ROWS;
+
+
+            // FunciÃ³n de ayuda para la visualizaciÃ³n del porcentaje
+            const getPercentageColor = (percentage) => {
+                if (percentage >= 100) return 'bg-green-100 text-green-700';
+                if (percentage > 70) return 'bg-orange-100 text-orange-700';
+                if (percentage > 0) return 'bg-red-100 text-red-700';
+                return 'bg-slate-50 text-slate-400';
+            };
+
+            return (
+                <div className="min-h-screen bg-slate-100 flex flex-col font-sans">
+                    {/* MODAL DE PLANIFICACIÃN */}
+                    {planningModal && (
+                        <PlanningModal 
+                            machine={MACHINES.find(m => m.id === planningModal.machineId)}
+                            rowId={planningModal.rowId}
+                            currentData={productionData[planningModal.rowId]?.[planningModal.machineId]}
+                            onClose={() => setPlanningModal(null)}
+                            onSave={handleSavePlanning}
+                        />
+                    )}
+
+                    {/* HEADER */}
+                    <header className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-20">
+                        <div className="w-full px-4 py-3 flex justify-between items-center">
+                            <div className="flex items-center gap-3">
+                                <div className="bg-blue-600 p-2 rounded-lg text-white">
+                                    <i data-lucide="factory" className="w-6 h-6"></i>
+                                </div>
+                                <div>
+                                    <h1 className="text-xl font-bold text-slate-800">Control de ProducciÃ³n - Cirineo 2025</h1>
+                                    <p className="text-xs text-slate-500 flex items-center gap-1">
+                                        <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                                        Logueado como: <span className="font-semibold text-slate-700">{authenticatedUser.name} ({authenticatedUser.role.toUpperCase()})</span>
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-4">
+                                {savingStatus === 'saving' && <span className="text-xs text-blue-500 font-medium">Guardando...</span>}
+                                {savingStatus === 'saved' && <span className="text-xs text-green-600 font-medium">Guardado</span>}
+                                {savingStatus === 'error' && <span className="text-xs text-red-600 font-medium">Error</span>}
+                                <button 
+                                    onClick={() => setAuthenticatedUser(null)} 
+                                    className="bg-red-500 text-white px-3 py-1 rounded-full text-xs font-medium hover:bg-red-600 transition"
+                                >
+                                    <i data-lucide="log-out" className="w-3 h-3 inline mr-1"></i>
+                                    Salir
+                                </button>
+                            </div>
+                        </div>
+                    </header>
+
+                    {/* MAIN TABLE */}
+                    <main className="flex-1 overflow-auto p-4">
+                        <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
+                            <div className="overflow-x-auto custom-scrollbar pb-2">
+                                <table className="w-full border-collapse"> 
+                                    <thead>
+                                        <tr className="bg-slate-50 border-b border-slate-200">
+                                            <th className="sticky left-0 z-10 bg-slate-50 p-4 min-w-[150px] border-r border-slate-200 text-left shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                                                <div className="flex flex-col gap-1">
+                                                    <span className="font-bold text-slate-700">FECHA</span>
+                                                    <span className="text-xs text-slate-400 font-normal">PRODUCCIÃN</span>
+                                                </div>
+                                            </th>
+                                            {MACHINES.map(machine => (
+                                                <MachineHeader 
+                                                    key={machine.id}
+                                                    machine={machine}
+                                                    isExpanded={expandedMachineId === machine.id}
+                                                    onClick={toggleExpansion}
+                                                />
+                                            ))}
+                                            <th className="sticky right-0 z-10 bg-slate-50 p-4 min-w-[100px] border-l border-slate-200 text-center text-slate-700 font-bold shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                                                TOTAL<br/>DIARIO
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {visibleRows.map((rowLabel, rowIndex) => {
+                                            let rowTotal = 0;
+                                            const isReadOnly = authenticatedUser.role === ROLES.OBSERVER;
+
+                                            return (
+                                                <tr key={rowLabel} className={`border-b border-slate-100 transition-colors ${rowIndex % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'} ${isReadOnly ? 'opacity-80' : 'hover:bg-blue-50/50'}`}>
+                                                    <td className="sticky left-0 z-10 bg-inherit p-3 border-r border-slate-200 font-medium text-slate-700 text-sm whitespace-nowrap shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                                                        <div className="flex items-center gap-2">
+                                                            <i data-lucide="calendar" className="w-3 h-3 text-slate-400"></i>
+                                                            {rowLabel}
+                                                        </div>
+                                                    </td>
+                                                    {MACHINES.map(machine => {
+                                                        const machineData = productionData[rowLabel]?.[machine.id] || {};
+                                                        const actualQty = machineData.actual ?? '';
+                                                        const targetPieces = machineData.calculated_target ?? 0;
+                                                        const percentage = machineData.percentage ?? 0;
+                                                        
+                                                        rowTotal += Number(actualQty) || 0;
+
+                                                        const isExpanded = expandedMachineId === machine.id;
+                                                        const canEditActual = [ROLES.ADMIN, ROLES.OPERATOR].includes(authenticatedUser.role) && !isReadOnly;
+                                                        const canPlan = authenticatedUser.role === ROLES.ADMIN && !isReadOnly;
+                                                        
+                                                        const showPlanningInfo = isExpanded || authenticatedUser.role !== ROLES.OPERATOR;
+
+
+                                                        return (
+                                                            <td 
+                                                                key={`${rowLabel}-${machine.id}`} 
+                                                                className={`p-0 border-r border-slate-100 relative machine-col ${isExpanded ? 'expanded' : ''} transition-[min-width] duration-300 ease-in-out`}
+                                                            >
+                                                                <div className="w-full h-full flex flex-col justify-between">
+                                                                    
+                                                                    {/* Planning Info (Visible para Admin/Comentador/Observador) */}
+                                                                    {showPlanningInfo && (
+                                                                        <div className={`p-1 text-center text-[10px] leading-tight transition-all ${isExpanded ? 'opacity-100' : 'opacity-0 h-0 p-0'} ${canPlan ? 'bg-blue-50/50' : 'bg-slate-50'}`}>
+                                                                            {canPlan && (
+                                                                                <button 
+                                                                                    onClick={() => setPlanningModal({ machineId: machine.id, rowId: rowLabel })}
+                                                                                    className="text-blue-600 hover:text-blue-800 font-bold mb-1 px-1 rounded-sm text-xs transition"
+                                                                                >
+                                                                                    {machineData.plan_model || 'PLANIFICAR'} 
+                                                                                    <i data-lucide="edit-3" className="w-3 h-3 inline ml-1"></i>
+                                                                                </button>
+                                                                            )}
+                                                                            <p className={`font-semibold ${machineData.plan_model ? 'text-slate-800' : 'text-slate-400'}`}>
+                                                                                Mod: {machineData.plan_model || '-'} / T: {machineData.plan_time_min || '-'} min
+                                                                            </p>
+                                                                            <p className="font-medium text-slate-600">
+                                                                                Obj: {targetPieces.toLocaleString()} Pz
+                                                                            </p>
+                                                                            <div className={`mt-1 text-xs font-black p-[1px] rounded ${getPercentageColor(percentage)}`}>
+                                                                                {percentage}%
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+
+                                                                    {/* Input de ProducciÃ³n Real (Operador/Admin) */}
+                                                                    <input
+                                                                        type="number"
+                                                                        placeholder={isReadOnly ? '0' : 'Ingresar Pzas'}
+                                                                        className={`w-full py-2 text-center text-slate-800 font-bold placeholder-slate-400 transition-all ${canEditActual ? 'bg-white hover:bg-yellow-50 focus:ring-blue-500 focus:border-blue-500 focus:ring-2' : 'bg-slate-100 cursor-default'}`}
+                                                                        value={actualQty}
+                                                                        onChange={(e) => canEditActual && handleUpdateField(rowLabel, machine.id, 'actual', Number(e.target.value) || 0)}
+                                                                        disabled={!canEditActual}
+                                                                    />
+                                                                </div>
+                                                            </td>
+                                                        );
+                                                    })}
+                                                    <td className="sticky right-0 z-10 bg-slate-50 p-3 border-l border-slate-200 text-center font-bold text-blue-600 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                                                        {rowTotal.toLocaleString()}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                    <tfoot className="bg-slate-100 border-t-2 border-slate-300">
+                                        <tr>
+                                            <td className="sticky left-0 z-10 bg-slate-100 p-4 font-bold text-slate-800 border-r border-slate-300 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                                                TOTAL VISIBLE
+                                            </td>
+                                            {MACHINES.map(machine => {
+                                                const isExpanded = expandedMachineId === machine.id;
+                                                
+                                                // Calcular total solo para las filas visibles
+                                                let colTotal = 0;
+                                                visibleRows.forEach(rowLabel => {
+                                                    colTotal += productionData[rowLabel]?.[machine.id]?.actual || 0;
+                                                });
+
+                                                return (
+                                                    <td 
+                                                        key={`total-${machine.id}`} 
+                                                        className={`p-3 text-center font-bold text-slate-700 border-r border-slate-200 bg-slate-100 machine-col ${isExpanded ? 'expanded' : ''} transition-[min-width] duration-300 ease-in-out`}
+                                                    >
+                                                        {colTotal.toLocaleString()}
+                                                    </td>
+                                                );
+                                            })}
+                                            <td className="sticky right-0 z-10 bg-slate-200 p-3 text-center font-black text-blue-800 border-l border-slate-300 text-lg shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                                                {/* Calcular total general solo para las filas visibles */}
+                                                {visibleRows.reduce((acc, rowLabel) => {
+                                                    return acc + MACHINES.reduce((sum, machine) => sum + (productionData[rowLabel]?.[machine.id]?.actual || 0), 0);
+                                                }, 0).toLocaleString()}
+                                            </td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+                    </main>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
 </body>
 </html>
 
