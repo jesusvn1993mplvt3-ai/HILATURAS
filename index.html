@@ -26,11 +26,13 @@
             box-shadow: 0 0 15px rgba(6, 182, 212, 0.1);
         }
         .btn-main:active { border-color: rgba(6, 182, 212, 0.8); }
-        /* Colores de notas */
-        .note-yellow { background-color: #facc15; color: black; }
-        .note-red { background-color: #ef4444; color: white; }
-        .note-blue { background-color: #3b82f6; color: white; }
-        .note-green { background-color: #22c55e; color: white; }
+        
+        /* Colores Botones Notas */
+        .bg-btn-yellow { background-color: #facc15; }
+        .bg-btn-red { background-color: #ef4444; }
+        .bg-btn-blue { background-color: #3b82f6; }
+        .bg-btn-green { background-color: #22c55e; }
+        .bg-btn-purple { background-color: #a855f7; }
     </style>
 </head>
 <body>
@@ -66,7 +68,6 @@
             { id: 'm8',  name: '08' },
         ];
 
-        // Generador de Calendario (Necesario para calcular los IDs exactos de los días)
         const generateCalendar = () => {
             const dates = [];
             const months = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
@@ -83,7 +84,6 @@
         };
         const ALL_ROWS = generateCalendar();
         
-        // Semana Inicial
         const INITIAL_WEEK = (() => {
             const todayISO = new Date().toISOString().split('T')[0];
             const foundIndex = ALL_ROWS.findIndex(r => r.isoDate === todayISO);
@@ -97,7 +97,7 @@
             
             // Estado para Notas
             const [noteMachine, setNoteMachine] = useState(MACHINES[0].id);
-            const [noteDayIdx, setNoteDayIdx] = useState(0); // 0 a 6 relativo a la semana actual
+            const [noteDayIdx, setNoteDayIdx] = useState(0); 
             const [noteText, setNoteText] = useState("");
             const [noteColor, setNoteColor] = useState("yellow");
             const [noteVisible, setNoteVisible] = useState(true);
@@ -119,7 +119,6 @@
                if(window.lucide) window.lucide.createIcons();
             });
 
-            // Calcular días de la semana actual visible en el monitor
             const currentWeekDays = useMemo(() => {
                 const currentWeek = INITIAL_WEEK + (navState.weekDelta || 0);
                 const start = currentWeek * 7;
@@ -151,19 +150,19 @@
                 const dayId = currentWeekDays[noteDayIdx].id;
                 const docRef = doc(db, 'produccion_2026', dayId);
 
-                // Estructura de actualización anidada
-                const updateData = {
-                    [`${noteMachine}.note`]: {
-                        text: noteText,
-                        color: noteColor,
-                        visible: noteVisible
-                    }
+                // IMPORTANTE: Estructura anidada para asegurar que setDoc funcione bien
+                const noteData = {
+                    text: noteText.toUpperCase(),
+                    color: noteColor,
+                    visible: noteVisible
                 };
 
+                const updatePayload = {};
+                updatePayload[noteMachine] = { note: noteData }; // Guardar dentro de la máquina
+
                 try {
-                    // Usamos setDoc con merge por si el documento del día no existe aún
-                    await setDoc(docRef, updateData, { merge: true });
-                    // Feedback visual breve
+                    // merge: true mezcla los datos, no borra lo que ya existe (como la producción)
+                    await setDoc(docRef, updatePayload, { merge: true });
                     setTimeout(() => setSending(false), 500);
                 } catch (e) {
                     console.error("Error enviando nota:", e);
@@ -206,29 +205,21 @@
                     <div className="bg-slate-900 rounded-2xl p-4 border border-slate-800 mb-6 shadow-lg">
                         <div className="flex items-center gap-2 mb-3 text-cyan-400">
                             <i data-lucide="sticky-note" className="w-5 h-5"></i>
-                            <span className="text-xs font-bold uppercase tracking-wider">Editor de Notas</span>
+                            <span className="text-xs font-bold uppercase tracking-wider">Enviar Nota</span>
                         </div>
                         
                         <div className="flex gap-2 mb-3">
-                            {/* Selector Máquina */}
                             <div className="flex-1">
                                 <label className="text-[10px] text-slate-500 font-bold uppercase block mb-1">Máquina</label>
-                                <select 
-                                    value={noteMachine} 
-                                    onChange={(e) => setNoteMachine(e.target.value)}
-                                    className="w-full bg-slate-950 border border-slate-700 text-white text-sm rounded-lg p-2 focus:border-cyan-500 outline-none"
-                                >
+                                <select value={noteMachine} onChange={(e) => setNoteMachine(e.target.value)}
+                                    className="w-full bg-slate-950 border border-slate-700 text-white text-sm rounded-lg p-2 focus:border-cyan-500 outline-none">
                                     {MACHINES.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                                 </select>
                             </div>
-                            {/* Selector Día */}
                             <div className="flex-1">
-                                <label className="text-[10px] text-slate-500 font-bold uppercase block mb-1">Día</label>
-                                <select 
-                                    value={noteDayIdx} 
-                                    onChange={(e) => setNoteDayIdx(Number(e.target.value))}
-                                    className="w-full bg-slate-950 border border-slate-700 text-white text-sm rounded-lg p-2 focus:border-cyan-500 outline-none"
-                                >
+                                <label className="text-[10px] text-slate-500 font-bold uppercase block mb-1">Día (Semana Actual)</label>
+                                <select value={noteDayIdx} onChange={(e) => setNoteDayIdx(Number(e.target.value))}
+                                    className="w-full bg-slate-950 border border-slate-700 text-white text-sm rounded-lg p-2 focus:border-cyan-500 outline-none">
                                     {currentWeekDays.map((d, idx) => (
                                         <option key={d.id} value={idx}>{d.label}</option>
                                     ))}
@@ -236,21 +227,15 @@
                             </div>
                         </div>
 
-                        <input 
-                            type="text" 
-                            placeholder="Escribe nota aquí..." 
-                            value={noteText}
-                            onChange={(e) => setNoteText(e.target.value)}
-                            className="w-full bg-slate-950 border border-slate-700 text-white rounded-lg p-3 mb-3 focus:border-cyan-500 outline-none"
+                        <input type="text" placeholder="TEXTO CORTO (EJ: FALLA)" value={noteText} onChange={(e) => setNoteText(e.target.value)}
+                            className="w-full bg-slate-950 border border-slate-700 text-white rounded-lg p-3 mb-3 focus:border-cyan-500 outline-none font-bold uppercase"
                         />
 
                         <div className="flex justify-between items-center">
                             <div className="flex gap-2">
-                                {['yellow', 'blue', 'green', 'red'].map(c => (
-                                    <button 
-                                        key={c}
-                                        onClick={() => setNoteColor(c)}
-                                        className={`w-8 h-8 rounded-full border-2 ${noteColor === c ? 'border-white scale-110' : 'border-transparent opacity-50'} note-${c}`}
+                                {['yellow', 'red', 'blue', 'green', 'purple'].map(c => (
+                                    <button key={c} onClick={() => setNoteColor(c)}
+                                        className={`w-8 h-8 rounded-full border-2 bg-btn-${c} ${noteColor === c ? 'border-white scale-110' : 'border-transparent opacity-50'}`}
                                     ></button>
                                 ))}
                             </div>
@@ -258,17 +243,17 @@
                                 <button onClick={() => setNoteVisible(!noteVisible)} className={`p-2 rounded-lg border ${noteVisible ? 'bg-cyan-900/50 border-cyan-500 text-cyan-400' : 'bg-slate-800 border-slate-700 text-slate-500'}`}>
                                     <i data-lucide={noteVisible ? "eye" : "eye-off"}></i>
                                 </button>
-                                <button onClick={sendNote} className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-lg flex items-center gap-2 transition-all active:scale-95">
-                                    {sending ? <i data-lucide="loader-2" className="animate-spin"></i> : <i data-lucide="send"></i>}
-                                    <span>ENVIAR</span>
+                                <button onClick={sendNote} className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-lg flex items-center gap-2 transition-all active:scale-95 shadow-lg shadow-cyan-900/50">
+                                    {sending ? <i data-lucide="loader-2" className="animate-spin w-4 h-4"></i> : <i data-lucide="send" className="w-4 h-4"></i>}
+                                    <span className="text-sm">ENVIAR</span>
                                 </button>
                             </div>
                         </div>
                     </div>
 
-                    {/* SELECTOR DE VISIBILIDAD MÁQUINAS (Colapsable o más pequeño) */}
+                    {/* SELECTOR DE VISIBILIDAD */}
                     <div className="flex-1 bg-slate-900/50 rounded-2xl p-2 border border-slate-800 flex flex-col min-h-[150px]">
-                        <div className="text-xs font-bold text-slate-500 mb-2 px-2">VISIBILIDAD</div>
+                        <div className="text-xs font-bold text-slate-500 mb-2 px-2">VISIBILIDAD MÁQUINAS</div>
                         <div className="grid grid-cols-4 gap-2">
                             {MACHINES.map(m => {
                                 const isHidden = visibility.machines?.includes(m.id);
