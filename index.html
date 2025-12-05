@@ -195,7 +195,8 @@
 
         const RemoteControl = () => {
             const [visibility, setVisibility] = useState({ machines: [] });
-            const [navState, setNavState] = useState({ weekOffset: 0, scrollLevel: 0 });
+            // Usamos 'weekDelta' para reflejar el cambio de semana desde el inicio, y 'scrollLevel' para el scroll vertical (días).
+            const [navState, setNavState] = useState({ weekDelta: 0, scrollLevel: 0 }); 
             const [connected, setConnected] = useState(false);
             
             // Estado para la instalación PWA
@@ -205,9 +206,9 @@
             useEffect(() => {
                 // Lógica de PWA Install Prompt
                 const handler = (e) => {
-                    e.preventDefault(); // Evita que Chrome muestre el mini-infobar automáticamente
+                    e.preventDefault(); 
                     setDeferredPrompt(e);
-                    setShowInstallModal(true); // Muestra nuestro modal personalizado
+                    setShowInstallModal(true);
                 };
                 window.addEventListener('beforeinstallprompt', handler);
 
@@ -219,8 +220,9 @@
                     if(s.exists()) setVisibility(s.data());
                 });
                 const unsubNav = onSnapshot(doc(db, 'settings', 'navigation'), (s) => {
+                    // Esperamos que el documento contenga weekDelta y scrollLevel
                     if(s.exists()) setNavState(s.data());
-                    else setDoc(doc(db, 'settings', 'navigation'), { weekOffset: 0, scrollLevel: 0 });
+                    else setDoc(doc(db, 'settings', 'navigation'), { weekDelta: 0, scrollLevel: 0 });
                 });
                 
                 return () => { 
@@ -229,16 +231,28 @@
                 };
             }, []);
 
-            const updateNav = (type, delta) => {
-                const newState = { ...navState };
+            const updateNav = async (type, delta) => {
+                const navRef = doc(db, 'settings', 'navigation');
+                const currentNav = navState;
+
                 if (type === 'week') {
-                    newState.weekOffset = (newState.weekOffset || 0) + delta;
-                    newState.scrollLevel = 0;
+                    // Mover entre semanas: actualiza weekDelta y resetea scroll
+                    await updateDoc(navRef, { 
+                        weekDelta: (currentNav.weekDelta || 0) + delta,
+                        scrollLevel: 0
+                    });
+                } else if (type === 'scroll') {
+                    // Mover entre días: actualiza scrollLevel, asegurando que no sea negativo
+                    await updateDoc(navRef, { 
+                        scrollLevel: Math.max(0, (currentNav.scrollLevel || 0) + delta)
+                    });
                 } else if (type === 'reset') {
-                    newState.weekOffset = 0;
-                    newState.scrollLevel = 0;
+                    // Reset a la semana actual y sin scroll
+                    await updateDoc(navRef, { 
+                        weekDelta: 0,
+                        scrollLevel: 0
+                    });
                 }
-                setDoc(doc(db, 'settings', 'navigation'), newState, { merge: true });
             };
 
             const toggleMachine = async (id) => {
@@ -263,7 +277,7 @@
                     <div className="p-4 flex justify-between items-center z-10 bg-slate-900/50 backdrop-blur-md border-b border-white/10">
                         <div className="flex items-center gap-3">
                             <img src="https://raw.githubusercontent.com/jesusvn1993mplvt3-ai/Doc/refs/heads/main/icon-maes26.png" 
-                                 className="w-10 h-10 rounded-lg shadow-[0_0_15px_rgba(6,182,212,0.3)] border border-cyan-500/30" />
+                                className="w-10 h-10 rounded-lg shadow-[0_0_15px_rgba(6,182,212,0.3)] border border-cyan-500/30" />
                             <div>
                                 <h1 className="text-lg font-black text-white tracking-widest leading-none">MAES26TV</h1>
                                 <span className="text-[10px] text-cyan-400 font-bold uppercase tracking-[0.2em] glow-text">Control Remoto</span>
@@ -275,7 +289,7 @@
                         </div>
                     </div>
 
-                    {/* --- CONTROLES DE NAVEGACIÓN --- */}
+                    {/* --- CONTROLES DE NAVEGACIÓN D-PAD --- */}
                     <div className="flex-1 flex flex-col justify-center items-center relative py-6">
                         
                         {/* Decoración de fondo */}
@@ -284,32 +298,63 @@
                             <div className="absolute w-48 h-48 border border-slate-500 rounded-full animate-[spin_15s_linear_infinite_reverse]"></div>
                         </div>
 
-                        {/* Botonera Vertical */}
-                        <div className="flex flex-col items-center gap-6 z-10 w-full max-w-[200px]">
-                            
-                            {/* UP BUTTON */}
-                            <button onClick={() => updateNav('week', -1)} 
-                                className="btn-control w-24 h-20 rounded-2xl flex items-center justify-center text-cyan-400 active:text-white group">
-                                <i data-lucide="chevron-up" className="w-12 h-12 transition-transform group-active:-translate-y-1"></i>
-                            </button>
+                        {/* Botonera D-Pad */}
+                        <div className="grid grid-cols-3 gap-2 z-10 w-full max-w-[280px]">
 
+                            {/* Fila 1: Semana Anterior (UP) */}
+                            <div className="col-start-2 flex flex-col items-center">
+                                <button onClick={() => updateNav('week', -1)} 
+                                    className="btn-control w-full h-16 rounded-xl flex items-center justify-center text-cyan-400 active:text-white group">
+                                    <i data-lucide="chevrons-up" className="w-8 h-8 transition-transform group-active:-translate-y-1"></i>
+                                </button>
+                                <span className="text-[10px] text-slate-500 font-bold uppercase block text-center mt-1">SEMANA ANT.</span>
+                            </div>
+                            
+                            {/* Fila 2: Scroll Izquierda (Día Anterior) | Reset/Display | Scroll Derecha (Día Siguiente) */}
+                            <div className="flex flex-col items-center">
+                                <button onClick={() => updateNav('scroll', -1)} 
+                                    className="btn-control w-full h-16 rounded-xl flex items-center justify-center text-cyan-400 active:text-white group">
+                                    <i data-lucide="chevron-left" className="w-8 h-8 transition-transform group-active:-translate-x-1"></i>
+                                </button>
+                                <span className="text-[10px] text-slate-500 font-bold uppercase block text-center mt-1">DÍA ANT.</span>
+                            </div>
+                            
                             {/* RESET / DISPLAY CENTRAL */}
                             <button onClick={() => updateNav('reset', 0)} 
-                                className="btn-center w-32 h-32 rounded-full flex flex-col items-center justify-center relative overflow-hidden group">
-                                <div className="absolute inset-0 bg-cyan-500/10 opacity-0 group-active:opacity-100 transition-opacity"></div>
-                                <span className="text-[10px] text-slate-400 uppercase font-bold tracking-widest mb-1">Semana</span>
-                                <span className="text-3xl font-black text-white glow-text">{navState.weekOffset > 0 ? `+${navState.weekOffset}` : navState.weekOffset}</span>
-                                <div className="mt-2 px-2 py-0.5 bg-cyan-900/50 rounded text-[9px] text-cyan-300 font-bold border border-cyan-500/30">
+                                className="btn-center w-full h-24 rounded-xl flex flex-col items-center justify-center relative overflow-hidden group">
+                                <span className="text-[10px] text-slate-400 uppercase font-bold tracking-widest leading-tight">SEMANA</span>
+                                <span className="text-3xl font-black text-white glow-text leading-none">
+                                    {navState.weekDelta > 0 ? `+${navState.weekDelta}` : navState.weekDelta}
+                                </span>
+                                <div className="mt-1 px-2 py-0.5 bg-cyan-900/50 rounded text-[9px] text-cyan-300 font-bold border border-cyan-500/30">
                                     RESET HOY
                                 </div>
                             </button>
+                            
+                            <div className="flex flex-col items-center">
+                                <button onClick={() => updateNav('scroll', 1)} 
+                                    className="btn-control w-full h-16 rounded-xl flex items-center justify-center text-cyan-400 active:text-white group">
+                                    <i data-lucide="chevron-right" className="w-8 h-8 transition-transform group-active:translate-x-1"></i>
+                                </button>
+                                <span className="text-[10px] text-slate-500 font-bold uppercase block text-center mt-1">DÍA SIG.</span>
+                            </div>
 
-                            {/* DOWN BUTTON */}
-                            <button onClick={() => updateNav('week', 1)} 
-                                className="btn-control w-24 h-20 rounded-2xl flex items-center justify-center text-cyan-400 active:text-white group">
-                                <i data-lucide="chevron-down" className="w-12 h-12 transition-transform group-active:translate-y-1"></i>
-                            </button>
-
+                            {/* Fila 3: Semana Siguiente (DOWN) */}
+                            <div className="col-start-2 flex flex-col items-center">
+                                <span className="text-[10px] text-slate-400 uppercase font-bold block text-center mb-1">SCROLL DÍA: <span className="text-cyan-400">{navState.scrollLevel}</span></span>
+                                <button onClick={() => updateNav('week', 1)} 
+                                    className="btn-control w-full h-16 rounded-xl flex items-center justify-center text-cyan-400 active:text-white group">
+                                    <i data-lucide="chevrons-down" className="w-8 h-8 transition-transform group-active:translate-y-1"></i>
+                                </button>
+                                <span className="text-[10px] text-slate-500 font-bold uppercase block text-center mt-1">SEMANA SIG.</span>
+                            </div>
+                        </div>
+                        
+                        {/* Instrucción adicional sobre el Reporte de Celda */}
+                        <div className="mt-8 text-center px-4">
+                            <p className="text-slate-600 text-xs font-bold uppercase tracking-widest border-t border-slate-800 pt-4">
+                                El **Reporte Detallado** (abrir/cerrar) se maneja con un **toque directo en la celda** del monitor.
+                            </p>
                         </div>
                     </div>
 
