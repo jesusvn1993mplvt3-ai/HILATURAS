@@ -3,48 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="theme-color" content="#0f172a">
-    
-    <title>MAES26TV REMOTE</title>
-    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <title>Control Remoto TV</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <style>
-        body { background-color: #020617; color: white; user-select: none; -webkit-tap-highlight-color: transparent; }
-        .btn-panel {
-            background: linear-gradient(145deg, #1e293b, #0f172a);
-            box-shadow: 5px 5px 10px #0b1120, -5px -5px 10px #2a3a52;
-            border: 1px solid rgba(255,255,255,0.05);
-        }
-        .btn-panel:active { transform: scale(0.96); box-shadow: inset 5px 5px 10px #0b1120; }
-        .btn-main {
-            background: radial-gradient(circle, #1e293b 0%, #0f172a 100%);
-            border: 2px solid rgba(6, 182, 212, 0.2);
-            box-shadow: 0 0 15px rgba(6, 182, 212, 0.1);
-        }
-        .btn-main:active { border-color: rgba(6, 182, 212, 0.8); }
-        
-        /* Colores Botones Notas */
-        .bg-btn-yellow { background-color: #facc15; }
-        .bg-btn-red { background-color: #ef4444; }
-        .bg-btn-blue { background-color: #3b82f6; }
-        .bg-btn-green { background-color: #22c55e; }
-        .bg-btn-purple { background-color: #a855f7; }
+        body { background-color: #1e1e1e; color: white; touch-action: manipulation; }
+        .record-btn:active { transform: scale(0.95); background-color: #ef4444; }
+        .recording-pulse { animation: pulse 1s infinite; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 20px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
     </style>
 </head>
 <body>
-    <div id="root" class="h-screen w-screen bg-slate-950"></div>
+    <div id="root"></div>
 
-    <script type="text/babel" data-type="module">
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-        import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
-        import { getFirestore, doc, onSnapshot, updateDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
-
-        const { useState, useEffect, useMemo } = React;
-
+    <script type="text/babel">
+        const { useState, useRef, useEffect } = React;
         const firebaseConfig = {
             apiKey: "AIzaSyBqHgV4vDat1-VmZfKbiPg7nuiX-ROcexw",
             authDomain: "cirineo-cec21.firebaseapp.com",
@@ -53,219 +31,122 @@
             messagingSenderId: "620210618284",
             appId: "1:620210618284:web:482bab9bf74650fff18409"
         };
-
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
-
-        const MACHINES = [
-            { id: 'm35', name: '35' }, { id: 'm39', name: '39' }, { id: 'm40', name: '40' },
-            { id: 'm36', name: '36' }, { id: 'm38', name: '38' }, { id: 'm37', name: '37' },
-            { id: 'm29', name: '29' }, { id: 'm28', name: '28' }, { id: 'm27', name: '27' },
-            { id: 'm33', name: '33' }, { id: 'm1',  name: '01' }, { id: 'm30', name: '30' },
-            { id: 'm31', name: '31' }, { id: 'm6',  name: '06' }, { id: 'm32', name: '32' },
-            { id: 'm13', name: '13' }, { id: 'm12', name: '12' }, { id: 'm24', name: '24' },
-            { id: 'm8',  name: '08' },
-        ];
-
-        const generateCalendar = () => {
-            const dates = [];
-            const months = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
-            const start = new Date(2025, 8, 1); 
-            const end = new Date(2026, 11, 31);
-            for (let d = start; d <= end; d.setDate(d.getDate() + 1)) {
-                dates.push({
-                    id: `${['DOMINGO','LUNES','MARTES','MIERCOLES','JUEVES','VIERNES','SABADO'][d.getDay()]} ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`,
-                    label: `${['DOM','LUN','MAR','MIE','JUE','VIE','SAB'][d.getDay()]} ${d.getDate()}`,
-                    isoDate: d.toISOString().split('T')[0] 
-                });
-            }
-            return dates;
-        };
-        const ALL_ROWS = generateCalendar();
-        
-        const INITIAL_WEEK = (() => {
-            const todayISO = new Date().toISOString().split('T')[0];
-            const foundIndex = ALL_ROWS.findIndex(r => r.isoDate === todayISO);
-            return foundIndex !== -1 ? Math.floor(foundIndex / 7) : 0;
-        })();
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const Icon = ({ name, size = 24 }) => <i data-lucide={name} width={size} height={size}></i>;
 
         const RemoteControl = () => {
-            const [visibility, setVisibility] = useState({ machines: [] });
-            const [navState, setNavState] = useState({ weekDelta: 0, scrollLevel: 0 });
-            const [connected, setConnected] = useState(false);
-            
-            // Estado para Notas
-            const [noteMachine, setNoteMachine] = useState(MACHINES[0].id);
-            const [noteDayIdx, setNoteDayIdx] = useState(0); 
-            const [noteText, setNoteText] = useState("");
-            const [noteColor, setNoteColor] = useState("yellow");
-            const [noteVisible, setNoteVisible] = useState(true);
-            const [sending, setSending] = useState(false);
+            const [note, setNote] = useState('');
+            const [isRecording, setIsRecording] = useState(false);
+            const [status, setStatus] = useState('Listo');
+            const mediaRecorder = useRef(null);
+            const audioChunks = useRef([]);
 
-            useEffect(() => {
-                signInAnonymously(auth).then(() => setConnected(true));
-                const unsubVis = onSnapshot(doc(db, 'settings', 'visibility'), (s) => {
-                    if(s.exists()) setVisibility(s.data());
+            useEffect(()=>lucide.createIcons(), [status]);
+
+            // --- Enviar Nota de Texto ---
+            const sendNote = async () => {
+                if(!note.trim()) return;
+                setStatus('Enviando...');
+                await db.collection('tv_messages').add({
+                    type: 'text',
+                    content: note.toUpperCase(),
+                    timestamp: Date.now()
                 });
-                const unsubNav = onSnapshot(doc(db, 'settings', 'navigation'), (s) => {
-                    if(s.exists()) setNavState(s.data());
-                    else setDoc(doc(db, 'settings', 'navigation'), { weekDelta: 0, scrollLevel: 0 });
+                setNote('');
+                setStatus('Nota Enviada');
+                setTimeout(() => setStatus('Listo'), 2000);
+            };
+
+            // --- Borrar Nota de TV ---
+            const clearNote = async () => {
+                await db.collection('tv_messages').add({
+                    type: 'text',
+                    action: 'clear',
+                    content: '',
+                    timestamp: Date.now()
                 });
-                return () => { unsubVis(); unsubNav(); };
-            }, []);
+                setStatus('Pantalla Limpia');
+                setTimeout(() => setStatus('Listo'), 2000);
+            };
 
-            useEffect(() => {
-               if(window.lucide) window.lucide.createIcons();
-            });
+            // --- Lógica de Grabación de Audio ---
+            const startRecording = async () => {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder.current = new MediaRecorder(stream);
+                    audioChunks.current = [];
+                    
+                    mediaRecorder.current.ondataavailable = (event) => {
+                        audioChunks.current.push(event.data);
+                    };
 
-            const currentWeekDays = useMemo(() => {
-                const currentWeek = INITIAL_WEEK + (navState.weekDelta || 0);
-                const start = currentWeek * 7;
-                return ALL_ROWS.slice(start, start + 7);
-            }, [navState.weekDelta]);
+                    mediaRecorder.current.onstop = async () => {
+                        const audioBlob = new Blob(audioChunks.current, { type: 'audio/webm' });
+                        const reader = new FileReader();
+                        reader.readAsDataURL(audioBlob);
+                        reader.onloadend = async () => {
+                            const base64Audio = reader.result;
+                            setStatus('Enviando Audio...');
+                            // Guardar en Firestore (nota: limite de 1MB por doc, ok para notas cortas)
+                            await db.collection('tv_messages').add({
+                                type: 'audio',
+                                content: base64Audio,
+                                timestamp: Date.now()
+                            });
+                            setStatus('Audio Enviado');
+                            setTimeout(() => setStatus('Listo'), 2000);
+                        };
+                    };
 
-            const updateNav = async (type, delta) => {
-                const navRef = doc(db, 'settings', 'navigation');
-                const currentNav = navState;
-                if (type === 'week') {
-                    await updateDoc(navRef, { weekDelta: (currentNav.weekDelta || 0) + delta, scrollLevel: 0 });
-                } else if (type === 'scroll') {
-                    await updateDoc(navRef, { scrollLevel: Math.max(0, (currentNav.scrollLevel || 0) + delta) });
-                } else if (type === 'reset') {
-                    await updateDoc(navRef, { weekDelta: 0, scrollLevel: 0 });
+                    mediaRecorder.current.start();
+                    setIsRecording(true);
+                } catch (err) {
+                    alert("Error accediendo al micrófono: " + err);
                 }
             };
 
-            const toggleMachine = async (id) => {
-                const isHidden = visibility.machines?.includes(id);
-                let newMachines = [...(visibility.machines || [])];
-                isHidden ? newMachines = newMachines.filter(m => m !== id) : newMachines.push(id);
-                await updateDoc(doc(db, 'settings', 'visibility'), { machines: newMachines });
-            };
-
-            const sendNote = async () => {
-                if (!noteMachine || !currentWeekDays[noteDayIdx]) return;
-                setSending(true);
-                const dayId = currentWeekDays[noteDayIdx].id;
-                const docRef = doc(db, 'produccion_2026', dayId);
-
-                // IMPORTANTE: Estructura anidada para asegurar que setDoc funcione bien
-                const noteData = {
-                    text: noteText.toUpperCase(),
-                    color: noteColor,
-                    visible: noteVisible
-                };
-
-                const updatePayload = {};
-                updatePayload[noteMachine] = { note: noteData }; // Guardar dentro de la máquina
-
-                try {
-                    // merge: true mezcla los datos, no borra lo que ya existe (como la producción)
-                    await setDoc(docRef, updatePayload, { merge: true });
-                    setTimeout(() => setSending(false), 500);
-                } catch (e) {
-                    console.error("Error enviando nota:", e);
-                    setSending(false);
+            const stopRecording = () => {
+                if (mediaRecorder.current && isRecording) {
+                    mediaRecorder.current.stop();
+                    setIsRecording(false);
                 }
             };
 
             return (
-                <div className="flex flex-col h-full bg-slate-950 p-4 overflow-y-auto">
-                    {/* Header */}
-                    <div className="flex justify-between items-center mb-4 border-b border-slate-800 pb-2">
-                        <div className="flex items-center gap-2">
-                            <i data-lucide="tv" className="text-cyan-400"></i>
-                            <span className="font-bold text-white tracking-widest">REMOTO</span>
-                        </div>
-                        <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500 shadow-[0_0_10px_#22c55e]' : 'bg-red-500'}`}></div>
-                    </div>
-
-                    {/* CONTROL DE NAVEGACIÓN */}
-                    <div className="grid grid-cols-3 gap-4 mb-6">
-                        <div className="flex flex-col gap-2">
-                            <div className="text-center text-[10px] text-slate-500 font-bold uppercase">Semanas</div>
-                            <button onClick={() => updateNav('week', -1)} className="btn-panel flex-1 rounded-xl flex items-center justify-center text-cyan-400"><i data-lucide="chevrons-up"></i></button>
-                            <button onClick={() => updateNav('week', 1)} className="btn-panel flex-1 rounded-xl flex items-center justify-center text-cyan-400"><i data-lucide="chevrons-down"></i></button>
-                        </div>
-                        <div className="flex flex-col justify-center">
-                            <button onClick={() => updateNav('reset', 0)} className="btn-main w-full aspect-square rounded-full flex flex-col items-center justify-center">
-                                <span className="text-2xl font-black text-white">{navState.weekDelta > 0 ? '+' : ''}{navState.weekDelta}</span>
-                                <span className="text-[9px] text-cyan-400 font-bold mt-1">RESET</span>
-                            </button>
-                        </div>
-                        <div className="flex flex-col gap-2">
-                            <div className="text-center text-[10px] text-slate-500 font-bold uppercase">Scroll</div>
-                            <button onClick={() => updateNav('scroll', -1)} className="btn-panel flex-1 rounded-xl flex items-center justify-center text-cyan-400"><i data-lucide="arrow-up"></i></button>
-                            <button onClick={() => updateNav('scroll', 1)} className="btn-panel flex-1 rounded-xl flex items-center justify-center text-cyan-400"><i data-lucide="arrow-down"></i></button>
+                <div className="flex flex-col h-screen p-4 max-w-md mx-auto">
+                    <h1 className="text-xl font-bold text-center mb-6 text-slate-400">CONTROL CIRINEO TV</h1>
+                    
+                    <div className="bg-slate-800 p-4 rounded-lg shadow-lg mb-6">
+                        <label className="text-xs font-bold text-slate-400 mb-2 block">ENVIAR NOTA A PANTALLA</label>
+                        <textarea 
+                            value={note}
+                            onChange={(e) => setNote(e.target.value)}
+                            className="w-full bg-slate-900 text-white p-3 rounded border border-slate-600 mb-3 text-lg font-bold uppercase"
+                            rows="3"
+                            placeholder="ESCRIBE AQUÍ..."
+                        ></textarea>
+                        <div className="flex gap-2">
+                            <button onClick={clearNote} className="flex-1 bg-red-900 text-red-200 py-3 rounded font-bold text-sm">QUITAR NOTA</button>
+                            <button onClick={sendNote} className="flex-1 bg-blue-600 text-white py-3 rounded font-bold shadow-lg active:bg-blue-700">ENVIAR TEXTO</button>
                         </div>
                     </div>
 
-                    {/* GESTOR DE NOTAS */}
-                    <div className="bg-slate-900 rounded-2xl p-4 border border-slate-800 mb-6 shadow-lg">
-                        <div className="flex items-center gap-2 mb-3 text-cyan-400">
-                            <i data-lucide="sticky-note" className="w-5 h-5"></i>
-                            <span className="text-xs font-bold uppercase tracking-wider">Enviar Nota</span>
-                        </div>
+                    <div className="flex-1 flex flex-col items-center justify-center bg-slate-800 rounded-lg shadow-lg p-6">
+                        <div className="text-xs font-bold text-slate-400 mb-8">MANTÉN PRESIONADO PARA GRABAR</div>
                         
-                        <div className="flex gap-2 mb-3">
-                            <div className="flex-1">
-                                <label className="text-[10px] text-slate-500 font-bold uppercase block mb-1">Máquina</label>
-                                <select value={noteMachine} onChange={(e) => setNoteMachine(e.target.value)}
-                                    className="w-full bg-slate-950 border border-slate-700 text-white text-sm rounded-lg p-2 focus:border-cyan-500 outline-none">
-                                    {MACHINES.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-                                </select>
-                            </div>
-                            <div className="flex-1">
-                                <label className="text-[10px] text-slate-500 font-bold uppercase block mb-1">Día (Semana Actual)</label>
-                                <select value={noteDayIdx} onChange={(e) => setNoteDayIdx(Number(e.target.value))}
-                                    className="w-full bg-slate-950 border border-slate-700 text-white text-sm rounded-lg p-2 focus:border-cyan-500 outline-none">
-                                    {currentWeekDays.map((d, idx) => (
-                                        <option key={d.id} value={idx}>{d.label}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
-
-                        <input type="text" placeholder="TEXTO CORTO (EJ: FALLA)" value={noteText} onChange={(e) => setNoteText(e.target.value)}
-                            className="w-full bg-slate-950 border border-slate-700 text-white rounded-lg p-3 mb-3 focus:border-cyan-500 outline-none font-bold uppercase"
-                        />
-
-                        <div className="flex justify-between items-center">
-                            <div className="flex gap-2">
-                                {['yellow', 'red', 'blue', 'green', 'purple'].map(c => (
-                                    <button key={c} onClick={() => setNoteColor(c)}
-                                        className={`w-8 h-8 rounded-full border-2 bg-btn-${c} ${noteColor === c ? 'border-white scale-110' : 'border-transparent opacity-50'}`}
-                                    ></button>
-                                ))}
-                            </div>
-                            <div className="flex gap-2">
-                                <button onClick={() => setNoteVisible(!noteVisible)} className={`p-2 rounded-lg border ${noteVisible ? 'bg-cyan-900/50 border-cyan-500 text-cyan-400' : 'bg-slate-800 border-slate-700 text-slate-500'}`}>
-                                    <i data-lucide={noteVisible ? "eye" : "eye-off"}></i>
-                                </button>
-                                <button onClick={sendNote} className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-lg flex items-center gap-2 transition-all active:scale-95 shadow-lg shadow-cyan-900/50">
-                                    {sending ? <i data-lucide="loader-2" className="animate-spin w-4 h-4"></i> : <i data-lucide="send" className="w-4 h-4"></i>}
-                                    <span className="text-sm">ENVIAR</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* SELECTOR DE VISIBILIDAD */}
-                    <div className="flex-1 bg-slate-900/50 rounded-2xl p-2 border border-slate-800 flex flex-col min-h-[150px]">
-                        <div className="text-xs font-bold text-slate-500 mb-2 px-2">VISIBILIDAD MÁQUINAS</div>
-                        <div className="grid grid-cols-4 gap-2">
-                            {MACHINES.map(m => {
-                                const isHidden = visibility.machines?.includes(m.id);
-                                return (
-                                    <button key={m.id} onClick={() => toggleMachine(m.id)}
-                                        className={`h-10 rounded-lg font-bold text-xs flex flex-col items-center justify-center transition-all ${
-                                            isHidden ? 'bg-slate-800 text-slate-600 opacity-50' : 'bg-cyan-900/40 text-cyan-200 border border-cyan-500/30'
-                                        }`}>
-                                        <span>{m.name}</span>
-                                    </button>
-                                );
-                            })}
+                        <button 
+                            onMouseDown={startRecording}
+                            onMouseUp={stopRecording}
+                            onTouchStart={startRecording}
+                            onTouchEnd={stopRecording}
+                            className={`w-32 h-32 rounded-full flex items-center justify-center shadow-2xl transition-all record-btn ${isRecording ? 'bg-red-500 recording-pulse' : 'bg-slate-700'}`}
+                        >
+                            <Icon name="mic" size={48} className="text-white"/>
+                        </button>
+                        
+                        <div className={`mt-6 font-bold text-lg ${isRecording ? 'text-red-500' : 'text-slate-500'}`}>
+                            {isRecording ? 'GRABANDO...' : status}
                         </div>
                     </div>
                 </div>
