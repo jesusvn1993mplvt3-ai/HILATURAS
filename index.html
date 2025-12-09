@@ -2,153 +2,786 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Control Remoto - Cirineo</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Producción Textil v2.0</title>
+    <!-- Carga de Tailwind CSS para el estilo -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Carga de React y Babel para manejar la lógica del componente -->
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Biblioteca de iconos -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-
     <style>
-        body { background-color: #1e293b; color: white; touch-action: manipulation; }
-        /* Botones táctiles responsivos */
-        .btn-machine { 
-            transition: all 0.1s; 
-            active: scale(0.95); 
-        }
-        .btn-active { 
-            background-color: #f59e0b; /* Amber 500 */
-            color: black;
-            border-color: #d97706;
-            box-shadow: 0 0 15px rgba(245, 158, 11, 0.4);
+        /* Estilos específicos para impresión */
+        @media print {
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+            body { background: white; -webkit-print-color-adjust: exact; }
+            .page-break { page-break-before: always; }
+            /* Asegurar que las líneas de escritura se vean en impresión */
+            .write-line { border-bottom: 1px solid #000 !important; }
         }
     </style>
 </head>
-<body>
+<body class="bg-slate-100 text-slate-800 font-sans">
     <div id="root"></div>
 
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyBqHgV4vDat1-VmZfKbiPg7nuiX-ROcexw",
-            authDomain: "cirineo-cec21.firebaseapp.com",
-            projectId: "cirineo-cec21",
-            storageBucket: "cirineo-cec21.firebasestorage.app",
-            messagingSenderId: "620210618284",
-            appId: "1:620210618284:web:482bab9bf74650fff18409"
+        // --- Utilidades ---
+        /**
+         * Genera un ID de orden único basado en el cliente, un contador y el nombre de la pieza.
+         * Formato: C-00000001-bl
+         */
+        const generateID = (clientName, sequence, pieceName) => {
+            const clientInitial = clientName ? clientName.charAt(0).toUpperCase() : 'X';
+            const seqString = String(sequence).padStart(8, '0');
+            // Toma las dos primeras letras de la pieza para el sufijo
+            const pieceSuffix = pieceName ? pieceName.substring(0, 2).toLowerCase() : 'xx';
+            return `${clientInitial}-${seqString}-${pieceSuffix}`;
         };
-        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-        const Icon = ({ name, size=24 }) => <i data-lucide={name} width={size} height={size}></i>;
 
-        const RemoteApp = () => {
-            const [orders, setOrders] = useState([]);
-            const [currentStatus, setCurrentStatus] = useState({ type: 'IDLE', target: null });
+        /**
+         * Construye la URL de la imagen en GitHub/Web.
+         */
+        const getGithubImageUrl = (repoBase, codigo) => {
+            // Asume estructura: [repoBase]/[CODIGO].jpg
+            if (!repoBase || !codigo) return null;
+            const cleanBase = repoBase.endsWith('/') ? repoBase : repoBase + '/';
+            return `${cleanBase}${codigo}.jpg`;
+        };
 
-            useEffect(() => {
-                // Leer órdenes para saber qué botones mostrar
-                const u1 = db.collection('orders').onSnapshot(s => setOrders(s.docs.map(d=>d.data())));
-                // Leer estado actual del control
-                const u2 = db.collection('system').doc('tv_control').onSnapshot(doc => {
-                    if(doc.exists) setCurrentStatus(doc.data());
-                });
-                setTimeout(()=>lucide.createIcons(), 500);
-                return () => { u1(); u2(); };
-            }, []);
-            
-            useEffect(()=>lucide.createIcons(), [orders]);
-
-            // Obtener máquinas activas
-            const machines = useMemo(() => {
-                const mqs = new Set();
-                orders.forEach(o => { 
-                    if(o.status !== 'ARCHIVADO' && o.progreso.some(p => !p.finished)) mqs.add(o.maquina); 
-                });
-                return Array.from(mqs).sort((a,b)=>a-b);
-            }, [orders]);
-
-            // --- ACCIONES ---
-            const showReport = async (maquina) => {
-                // Verificar vibración para feedback táctil
-                if(navigator.vibrate) navigator.vibrate(50);
-                await db.collection('system').doc('tv_control').set({
-                    type: 'SHOW_REPORT',
-                    target: maquina,
-                    timestamp: Date.now()
-                });
+        // --- Componentes Iconos (Lucide Icons simplificados) ---
+        const Icon = ({ name, size = 20, className }) => {
+            const icons = {
+                plus: <path d="M12 5v14M5 12h14" />,
+                trash: <path d="M3 6h18M19 6v14c0 1.1-.9 2-2 2H7c-1.1 0-2-.9-2-2V6M8 6V4c0-1.1.9-2 2-2h4c1.1 0 2 .9 2 2v2M10 11v6M14 11v6" />,
+                save: <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2zM17 21v-8H7v8M7 3v5h8" />,
+                printer: <path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z" />,
+                search: <path d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.35-4.35" />,
+                edit: <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />,
+                arrowLeft: <path d="M19 12H5M12 19l-7-7 7-7" />,
+                archive: <path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4" />,
+                folder: <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />,
+                image: <path d="M21 19V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2zM8.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM21 15l-5-5L5 21" />,
+                settings: <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.18-.08a2 2 0 0 0-2 2v.44a2 2 0 0 0 2 2h.18a2 2 0 0 1 1.73 1l.25.43a2 2 0 0 1 0 2l-.08.18a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.18.08a2 2 0 0 0 2-2v-.44a2 2 0 0 0-2-2h-.18a2 2 0 0 1-1.73-1l-.25-.43a2 2 0 0 1 0-2l.08-.18a2 2 0 0 0-2-2zM15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z" />
             };
+            return (
+                <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                    {icons[name] || <circle cx="12" cy="12" r="10" />}
+                </svg>
+            );
+        };
 
-            const resetTV = async () => {
-                if(navigator.vibrate) navigator.vibrate(50);
-                await db.collection('system').doc('tv_control').set({
-                    type: 'IDLE',
-                    target: null,
-                    timestamp: Date.now()
-                });
-            };
+        // --- Componente Modal de Configuración ---
+        const SettingsModal = ({ config, onSave, onClose }) => {
+            const [localConfig, setLocalConfig] = useState(config);
 
             return (
-                <div className="min-h-screen flex flex-col p-4">
-                    <div className="flex items-center justify-between mb-6">
-                        <div className="flex items-center gap-2">
-                            <Icon name="gamepad-2" className="text-indigo-400"/>
-                            <h1 className="font-black text-xl tracking-tight">REMOTE <span className="text-indigo-400">CONTROL</span></h1>
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-white p-6 rounded-lg w-full max-w-md shadow-2xl">
+                        <h2 className="text-xl font-bold mb-4">Configuración</h2>
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium text-slate-700 mb-1">URL Base de Fotos (GitHub/Web)</label>
+                            <input 
+                                type="text" 
+                                className="w-full border p-2 rounded text-sm" 
+                                placeholder="https://raw.githubusercontent.com/usuario/repo/main/fotos/"
+                                value={localConfig.repoUrl}
+                                onChange={e => setLocalConfig({...localConfig, repoUrl: e.target.value})}
+                            />
+                            <p className="text-xs text-slate-500 mt-1">El sistema buscará: URL + CÓDIGO + .jpg</p>
                         </div>
-                        <div className="text-xs font-mono text-slate-400">
-                            {currentStatus.type === 'IDLE' ? 'TV: LISTO' : 'TV: OCUPADO'}
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Contador de Órdenes Inicial</label>
+                            <input 
+                                type="number" 
+                                className="w-full border p-2 rounded text-sm" 
+                                value={localConfig.sequenceCounter}
+                                onChange={e => setLocalConfig({...localConfig, sequenceCounter: parseInt(e.target.value) || 1})}
+                            />
+                            <p className="text-xs text-slate-500 mt-1">Este es el número que se usará para el siguiente lote (Ej: C-000000**01**)</p>
                         </div>
-                    </div>
-
-                    <div className="bg-slate-800 rounded-2xl p-4 mb-4 shadow-inner">
-                        <h2 className="text-xs font-bold text-slate-500 uppercase mb-3">Seleccionar Máquina</h2>
-                        {machines.length === 0 ? (
-                            <div className="text-center py-8 text-slate-500 font-bold">Sin máquinas activas</div>
-                        ) : (
-                            <div className="grid grid-cols-3 gap-3">
-                                {machines.map(m => (
-                                    <button 
-                                        key={m} 
-                                        onClick={() => showReport(m)}
-                                        className={`btn-machine h-20 rounded-xl font-black text-2xl shadow-lg border-b-4 flex flex-col items-center justify-center 
-                                            ${currentStatus.target === m && currentStatus.type === 'SHOW_REPORT' 
-                                                ? 'btn-active' 
-                                                : 'bg-slate-700 border-slate-900 text-slate-300 hover:bg-slate-600 active:border-b-0 active:translate-y-1'
-                                            }`}
-                                    >
-                                        <span>{m}</span>
-                                        {currentStatus.target === m && <span className="text-[8px] uppercase tracking-widest font-normal">Viendo</span>}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Botón grande para cerrar */}
-                    <button 
-                        onClick={resetTV}
-                        disabled={currentStatus.type === 'IDLE'}
-                        className={`mt-auto w-full py-6 rounded-2xl font-black text-xl uppercase tracking-widest flex items-center justify-center gap-3 transition-all
-                            ${currentStatus.type === 'IDLE' 
-                                ? 'bg-slate-800 text-slate-600 opacity-50 cursor-not-allowed' 
-                                : 'bg-red-600 text-white shadow-[0_0_20px_rgba(220,38,38,0.5)] active:scale-95'
-                            }`}
-                    >
-                        <Icon name="x-circle" size={28}/> Cerrar Reporte TV
-                    </button>
-                    
-                    <div className="text-center mt-4 text-[10px] text-slate-600">
-                        v2.0 PWA Link System
+                        <div className="flex justify-end gap-2">
+                            <button onClick={onClose} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded">Cancelar</button>
+                            <button onClick={() => onSave(localConfig)} className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Guardar</button>
+                        </div>
                     </div>
                 </div>
             );
         };
 
+        // --- Componente Formulario de Lote/Multi-Orden ---
+        const MultiOrderForm = ({ config, onSave, onCancel }) => {
+            // Datos Cabecera (Compartidos)
+            const [header, setHeader] = useState({
+                cliente: '',
+                maquina: '',
+                fechaInicio: new Date().toISOString().split('T')[0],
+                fechaEntrega: ''
+            });
+
+            // Lista de Piezas (Sub-ordenes)
+            const [pieces, setPieces] = useState([
+                { id: 1, codigo: '', pieza: 'Blusa', talla: 'Unitalla', peso: '', tiempo: '', totalPedido: '', materiales: [{material: '', consumo: ''}] }
+            ]);
+
+            const addPiece = () => {
+                setPieces([...pieces, { 
+                    id: Date.now(), 
+                    codigo: header.cliente ? header.cliente.substring(0,3).toUpperCase() + '-' : '', // Sugerencia de código
+                    pieza: '', talla: 'Unitalla', peso: '', tiempo: '', totalPedido: '', 
+                    materiales: [{material: '', consumo: ''}] 
+                }]);
+            };
+
+            const updatePiece = (id, field, value) => {
+                setPieces(pieces.map(p => p.id === id ? { ...p, [field]: value } : p));
+            };
+            
+            const updateMaterial = (pieceId, matIdx, field, value) => {
+                setPieces(pieces.map(p => {
+                    if (p.id !== pieceId) return p;
+                    const newMats = [...p.materiales];
+                    newMats[matIdx][field] = value;
+                    return { ...p, materiales: newMats };
+                }));
+            };
+
+            const addMaterial = (pieceId) => {
+                setPieces(pieces.map(p => p.id === pieceId ? { ...p, materiales: [...p.materiales, {material:'', consumo:''}] } : p));
+            };
+
+            const removeMaterial = (pieceId, matIdx) => {
+                setPieces(pieces.map(p => {
+                    if (p.id !== pieceId) return p;
+                    return { ...p, materiales: p.materiales.filter((_, i) => i !== matIdx) };
+                }));
+            };
+
+            const removePiece = (id) => {
+                if(pieces.length > 1) setPieces(pieces.filter(p => p.id !== id));
+            };
+
+            const handleSubmit = () => {
+                if(!header.cliente || !header.maquina) return alert("Falta Cliente o Máquina");
+
+                // Generar órdenes individuales
+                const newOrders = pieces.map((p, index) => {
+                    const uniqueID = generateID(header.cliente, config.sequenceCounter, p.pieza);
+                    
+                    return {
+                        id: Date.now() + index, // ID interno para React
+                        displayId: uniqueID, // ID visual para el usuario (O-00001-bl)
+                        baseSequence: config.sequenceCounter, // Para referencia
+                        cliente: header.cliente,
+                        maquina: header.maquina,
+                        fechaInicio: header.fechaInicio,
+                        fechaFin: header.fechaEntrega,
+                        codigo: p.codigo,
+                        pieza: p.pieza,
+                        talla: p.talla,
+                        peso: p.peso,
+                        tiempo: p.tiempo,
+                        totalPedido: p.totalPedido,
+                        materiales: p.materiales.filter(m => m.material), // Filtra materiales vacíos
+                        enhebrado: '', // Campo de notas
+                        progreso: [],
+                        status: 'En Proceso',
+                        imageManual: null 
+                    };
+                });
+
+                onSave(newOrders);
+            };
+
+            return (
+                <div className="max-w-6xl mx-auto bg-white rounded-xl shadow-lg my-6 overflow-hidden">
+                    <div className="bg-indigo-600 p-4 flex justify-between items-center text-white">
+                        <h2 className="text-xl font-bold">Crear Nuevo Lote de Producción</h2>
+                        <button onClick={onCancel} className="text-indigo-200 hover:text-white">Cancelar</button>
+                    </div>
+                    
+                    <div className="p-6">
+                        {/* Cabecera */}
+                        <div className="bg-indigo-50 p-4 rounded-lg mb-6 border border-indigo-100">
+                            <h3 className="text-sm font-bold text-indigo-800 uppercase mb-3">Datos Generales (Aplica a todas las piezas) - ID Lote: {generateID(header.cliente, config.sequenceCounter, "")}</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-indigo-600 mb-1">Cliente</label>
+                                    <input value={header.cliente} onChange={e => setHeader({...header, cliente: e.target.value})} className="w-full p-2 border rounded" placeholder="Ej: Optima" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-indigo-600 mb-1">Máquina</label>
+                                    <input value={header.maquina} onChange={e => setHeader({...header, maquina: e.target.value})} className="w-full p-2 border rounded" placeholder="#5" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-indigo-600 mb-1">Fecha Inicio</label>
+                                    <input type="date" value={header.fechaInicio} onChange={e => setHeader({...header, fechaInicio: e.target.value})} className="w-full p-2 border rounded" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-indigo-600 mb-1">Entrega Estimada</label>
+                                    <input type="date" value={header.fechaEntrega} onChange={e => setHeader({...header, fechaEntrega: e.target.value})} className="w-full p-2 border rounded" />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Lista de Piezas */}
+                        <div className="space-y-6">
+                            {pieces.map((piece, idx) => (
+                                <div key={piece.id} className="border border-slate-300 rounded-lg p-4 relative hover:shadow-md transition bg-white">
+                                    <div className="absolute top-0 left-0 bg-slate-200 text-slate-600 px-2 py-1 text-xs font-bold rounded-br">
+                                        Pieza #{idx + 1}
+                                    </div>
+                                    <button onClick={() => removePiece(piece.id)} className="absolute top-2 right-2 text-red-400 hover:text-red-600 p-1 rounded-full bg-white/50 hover:bg-white transition">
+                                        <Icon name="trash" size={18} />
+                                    </button>
+
+                                    <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mt-4">
+                                        <div className="col-span-1 md:col-span-2">
+                                            <label className="text-xs text-slate-500 block">Nombre Pieza (Sufijo ID)</label>
+                                            <input list="piezasList" value={piece.pieza} onChange={e => updatePiece(piece.id, 'pieza', e.target.value)} className="w-full p-2 border rounded font-bold" placeholder="Ej: Blusa" />
+                                            <datalist id="piezasList">
+                                                <option value="Blusa" />
+                                                <option value="Manga" />
+                                                <option value="Cuello" />
+                                                <option value="Tirante" />
+                                                <option value="Espalda" />
+                                            </datalist>
+                                        </div>
+                                        <div className="col-span-1 md:col-span-2">
+                                            <label className="text-xs text-slate-500 block">Código Diseño</label>
+                                            <input value={piece.codigo} onChange={e => updatePiece(piece.id, 'codigo', e.target.value)} className="w-full p-2 border rounded" placeholder="Ej: M026BL01" />
+                                        </div>
+                                        <div className="col-span-1">
+                                            <label className="text-xs text-slate-500 block">Talla</label>
+                                            <input value={piece.talla} onChange={e => updatePiece(piece.id, 'talla', e.target.value)} className="w-full p-2 border rounded" />
+                                        </div>
+                                        <div className="col-span-1">
+                                            <label className="text-xs text-slate-500 block">Pedido Total</label>
+                                            <input type="number" value={piece.totalPedido} onChange={e => updatePiece(piece.id, 'totalPedido', e.target.value)} className="w-full p-2 border rounded" />
+                                        </div>
+                                        <div className="col-span-1">
+                                            <label className="text-xs text-slate-500 block">Peso (kg)</label>
+                                            <input type="number" step="0.001" value={piece.peso} onChange={e => updatePiece(piece.id, 'peso', e.target.value)} className="w-full p-2 border rounded" />
+                                        </div>
+                                        <div className="col-span-1">
+                                            <label className="text-xs text-slate-500 block">Tiempo (min)</label>
+                                            <input type="number" step="0.1" value={piece.tiempo} onChange={e => updatePiece(piece.id, 'tiempo', e.target.value)} className="w-full p-2 border rounded" />
+                                        </div>
+                                    </div>
+
+                                    {/* Materiales Mini Inline */}
+                                    <div className="mt-3 bg-slate-50 p-2 rounded">
+                                        <div className="flex items-center justify-between gap-2 mb-2 border-b pb-1">
+                                            <span className="text-xs font-bold text-slate-500">MATERIALES REQUERIDOS:</span>
+                                            <button onClick={() => addMaterial(piece.id)} className="text-xs text-indigo-600 underline hover:no-underline font-medium flex items-center gap-1">
+                                                <Icon name="plus" size={12} /> Agregar Hilo
+                                            </button>
+                                        </div>
+                                        {piece.materiales.map((m, mIdx) => (
+                                            <div key={mIdx} className="flex gap-2 mb-1 items-center">
+                                                <input placeholder="Nombre Material (Ej: Likra Yuki)" className="flex-1 p-1 text-xs border rounded" value={m.material} onChange={e => updateMaterial(piece.id, mIdx, 'material', e.target.value)} />
+                                                <input placeholder="Consumo (kg)" className="w-24 p-1 text-xs border rounded text-right" value={m.consumo} onChange={e => updateMaterial(piece.id, mIdx, 'consumo', e.target.value)} />
+                                                <button onClick={() => removeMaterial(piece.id, mIdx)} className="text-red-400 hover:text-red-600 p-1">
+                                                    <Icon name="trash" size={14} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="mt-6 flex flex-col md:flex-row justify-between gap-4">
+                            <button onClick={addPiece} className="border-2 border-dashed border-indigo-300 text-indigo-600 px-4 py-3 rounded-lg w-full md:w-auto hover:bg-indigo-50 font-bold transition">
+                                <Icon name="plus" size={16} className="inline mr-1" /> Agregar Otra Pieza (Mismo Lote)
+                            </button>
+                            <button onClick={handleSubmit} className="bg-indigo-600 text-white px-8 py-3 rounded-lg shadow-lg hover:bg-indigo-700 font-bold flex items-center justify-center gap-2 transition">
+                                <Icon name="save" /> Generar Órdenes
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- Componente Vista de Detalle de Orden ---
+        const OrderView = ({ order, config, onBack, onUpdateStatus, onUpdateProgress, onUpdateNotes }) => {
+            const [entry, setEntry] = useState({ fecha: new Date().toISOString().split('T')[0], tejedor: '', produccion: '', defectos: '' });
+            const [notes, setNotes] = useState(order.enhebrado || '');
+            
+            // Determinar imagen (Manual > GitHub > Placeholder)
+            const imageUrl = order.imageManual || getGithubImageUrl(config.repoUrl, order.codigo);
+
+            const addProgress = () => {
+                if(!entry.produccion || !entry.tejedor) return alert("Por favor, ingrese Producción y Tejedor.");
+                
+                const newProgress = [...(order.progreso || []), { 
+                    ...entry, 
+                    produccion: Number(entry.produccion), // Asegura que sea número
+                    id: Date.now() 
+                }];
+                onUpdateProgress(order.id, newProgress);
+                // Limpiar solo los campos de producción y defectos para el siguiente registro
+                setEntry({ ...entry, produccion: '', defectos: '' });
+            };
+
+            const handleNotesChange = () => {
+                 onUpdateNotes(order.id, notes);
+            };
+            
+            const totalProd = order.progreso?.reduce((acc, curr) => acc + Number(curr.produccion), 0) || 0;
+            const porcentaje = order.totalPedido ? Math.min(100, ((totalProd / Number(order.totalPedido)) * 100)).toFixed(1) : 0;
+            const remaining = order.totalPedido ? Number(order.totalPedido) - totalProd : 'N/A';
+
+            return (
+                <div className="max-w-5xl mx-auto my-4 bg-white shadow-xl min-h-screen">
+                    <div className="no-print p-4 border-b bg-slate-50 flex justify-between items-center sticky top-0 z-20">
+                        <button onClick={onBack} className="text-slate-600 flex items-center gap-2 font-bold hover:text-indigo-600 transition"><Icon name="arrowLeft" /> Lista de Órdenes</button>
+                        <div className="flex gap-2">
+                            {order.status !== 'Archivado' ? (
+                                <button onClick={() => onUpdateStatus(order.id, 'Archivado')} className="bg-amber-500 text-white px-3 py-2 rounded flex items-center gap-2 hover:bg-amber-600 transition">
+                                    <Icon name="archive" size={16} /> Archivar Orden
+                                </button>
+                            ) : (
+                                <span className="bg-gray-200 text-gray-600 px-3 py-2 rounded font-bold text-sm">ARCHIVADO</span>
+                            )}
+                            <button onClick={() => window.print()} className="bg-slate-800 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-slate-900 transition">
+                                <Icon name="printer" /> Imprimir Hoja
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="p-8 print:p-4">
+                        {/* Encabezado Impresión / Digital */}
+                        <div className="flex justify-between items-start border-b-4 border-indigo-600 pb-4 mb-6">
+                            <div>
+                                <h1 className="text-4xl font-black text-slate-800 tracking-tight">{order.cliente}</h1>
+                                <div className="text-xl text-indigo-600 mt-1 font-mono font-bold">{order.displayId}</div>
+                            </div>
+                            <div className="text-right">
+                                <div className="bg-slate-900 text-white px-4 py-1 text-sm font-bold uppercase mb-1 rounded-t-lg">Máquina</div>
+                                <div className="text-5xl font-black text-slate-900">{order.maquina}</div>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-6">
+                            <div className="lg:col-span-2">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-6 border border-slate-300 p-4 rounded bg-slate-50">
+                                    <div className="col-span-2">
+                                        <span className="block text-xs font-bold text-slate-500 uppercase">Código Diseño</span>
+                                        <span className="text-lg font-bold">{order.codigo}</span>
+                                    </div>
+                                    <div>
+                                        <span className="block text-xs font-bold text-slate-500 uppercase">Pieza</span>
+                                        <span className="text-lg font-bold">{order.pieza}</span>
+                                    </div>
+                                    <div>
+                                        <span className="block text-xs font-bold text-slate-500 uppercase">Talla</span>
+                                        <span className="text-lg">{order.talla}</span>
+                                    </div>
+                                    <div className="col-span-2">
+                                        <span className="block text-xs font-bold text-slate-500 uppercase">Total Pedido</span>
+                                        <span className="text-2xl font-black text-indigo-700">{order.totalPedido} pzs</span>
+                                    </div>
+                                    <div>
+                                        <span className="block text-xs font-bold text-slate-500 uppercase">Producido</span>
+                                        <span className="text-lg font-bold text-green-600">{totalProd} pzs</span>
+                                    </div>
+                                    <div>
+                                        <span className="block text-xs font-bold text-slate-500 uppercase">Restante</span>
+                                        <span className="text-lg font-bold text-red-600">{remaining} pzs</span>
+                                    </div>
+                                </div>
+
+                                {/* Materiales */}
+                                <div className="mb-6">
+                                    <h3 className="font-bold border-b border-slate-400 mb-2 uppercase text-sm">Lista de Materiales</h3>
+                                    <table className="w-full text-sm">
+                                        <thead>
+                                            <tr className="bg-slate-100 text-left">
+                                                <th className="p-2">Material</th>
+                                                <th className="p-2 text-right">Consumo Est.</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {order.materiales.map((m, i) => (
+                                                <tr key={i} className="border-b border-slate-100">
+                                                    <td className="p-2">{m.material}</td>
+                                                    <td className="p-2 text-right font-mono">{m.consumo} kg</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <div className="lg:col-span-1">
+                                <div className="border-2 border-slate-900 rounded bg-white p-1 flex items-center justify-center min-h-[200px] aspect-square">
+                                    {imageUrl ? (
+                                        <img src={imageUrl} alt={`Referencia ${order.codigo}`} className="max-w-full h-auto max-h-[300px] object-contain" 
+                                            onError={(e) => {
+                                                e.target.style.display='none'; 
+                                                const parent = e.target.parentElement;
+                                                parent.innerHTML = `<div class="text-center text-slate-400 p-4"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mx-auto mb-2"><path d="M21 19V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2zM8.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM21 15l-5-5L5 21"></path></svg><span class="text-xs uppercase font-bold">IMAGEN NO DISPONIBLE</span><p class="text-xs mt-1">${order.codigo}.jpg no encontrado en la URL de configuración.</p></div>`;
+                                            }} 
+                                        />
+                                    ) : (
+                                        <div className="text-center text-slate-400">
+                                            <Icon name="image" size={48} className="mx-auto mb-2" />
+                                            <span className="text-xs uppercase font-bold">Sin Imagen</span>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="mt-4 text-center border p-3 rounded bg-indigo-50">
+                                    <div className="text-xs font-bold text-indigo-400 uppercase">Progreso Total</div>
+                                    <div className="text-5xl font-black text-indigo-800">{porcentaje}%</div>
+                                    <div className="text-sm font-bold text-slate-600">{totalProd} de {order.totalPedido} pzs</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        {/* Área de Notas / Enhebrado */}
+                        <div className="mb-8 p-4 border border-dashed border-slate-400 rounded bg-slate-50 no-print">
+                            <label className="text-xs font-bold text-slate-600 uppercase block mb-2">Notas de Enhebrado / Ajustes de Máquina:</label>
+                            <textarea 
+                                className="w-full p-2 border rounded text-sm font-mono" 
+                                rows="3" 
+                                value={notes}
+                                onChange={e => setNotes(e.target.value)}
+                                onBlur={handleNotesChange}
+                                placeholder="Escribe aquí cualquier ajuste crítico, número de agujas, o notas importantes para el tejedor."
+                            ></textarea>
+                            <p className="text-xs text-right text-slate-500">Haz clic afuera para guardar la nota.</p>
+                        </div>
+                        
+                        {/* Área de Notas de Impresión */}
+                        <div className="mb-8 print-only">
+                            <h3 className="text-sm font-bold uppercase text-slate-700 mb-1">Notas de Enhebrado / Ajustes:</h3>
+                            <p className="border border-slate-300 p-2 text-sm min-h-[60px] font-mono whitespace-pre-wrap">{order.enhebrado}</p>
+                        </div>
+
+
+                        {/* --- ÁREA DE CAPTURA MANUAL (Solo para imprimir) --- */}
+                        <div className="print-only mt-8">
+                            <h3 className="text-lg font-bold uppercase mb-2 border-b-2 border-black">Hoja de Captura Diaria (Manual)</h3>
+                            <table className="w-full text-sm border-collapse border border-black">
+                                <thead>
+                                    <tr className="bg-slate-200">
+                                        <th className="border border-black p-2 w-24">Fecha</th>
+                                        <th className="border border-black p-2 w-16">Turno</th>
+                                        <th className="border border-black p-2">Nombre Tejedor</th>
+                                        <th className="border border-black p-2 w-20">Prod. (Pzs)</th>
+                                        <th className="border border-black p-2 w-20">Defectos</th>
+                                        <th className="border border-black p-2">Observaciones / Agujas</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {[...Array(15)].map((_, i) => (
+                                        <tr key={i} className="h-10">
+                                            <td className="border border-black"></td>
+                                            <td className="border border-black"></td>
+                                            <td className="border border-black"></td>
+                                            <td className="border border-black"></td>
+                                            <td className="border border-black"></td>
+                                            <td className="border border-black"></td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                            <div className="mt-2 text-xs text-right italic">Sistema de Control v2.0 - {order.displayId}</div>
+                        </div>
+
+                        {/* --- SISTEMA DIGITAL (No imprimir) --- */}
+                        <div className="no-print mt-8 bg-slate-100 p-6 rounded-xl">
+                            <h3 className="font-bold text-slate-700 mb-4 border-b pb-2">Captura Digital de Producción</h3>
+                            
+                            <div className="flex flex-col sm:flex-row gap-2 mb-4 items-end">
+                                <div className="flex-grow">
+                                    <label className="text-xs text-slate-500 block">Fecha</label>
+                                    <input type="date" className="p-2 border rounded w-full" value={entry.fecha} onChange={e=>setEntry({...entry, fecha: e.target.value})} />
+                                </div>
+                                <div className="w-full sm:w-32">
+                                     <label className="text-xs text-slate-500 block">Tejedor</label>
+                                    <input type="text" placeholder="Nombre" className="p-2 border rounded w-full" value={entry.tejedor} onChange={e=>setEntry({...entry, tejedor: e.target.value})} />
+                                </div>
+                                <div className="w-full sm:w-20">
+                                    <label className="text-xs text-slate-500 block font-bold text-green-700">Pzs Producidas</label>
+                                    <input type="number" placeholder="Pzs" className="p-2 border rounded w-full font-bold text-right" value={entry.produccion} onChange={e=>setEntry({...entry, produccion: e.target.value})} />
+                                </div>
+                                <div className="flex-1">
+                                     <label className="text-xs text-slate-500 block">Observaciones / Defectos</label>
+                                    <input type="text" placeholder="Obs." className="p-2 border rounded w-full" value={entry.defectos} onChange={e=>setEntry({...entry, defectos: e.target.value})} />
+                                </div>
+                                <button onClick={addProgress} className="bg-green-600 text-white p-2 h-10 w-full sm:w-auto rounded hover:bg-green-700 transition"><Icon name="plus" /></button>
+                            </div>
+
+                            <div className="max-h-96 overflow-y-auto mt-4">
+                                <table className="w-full text-sm bg-white rounded shadow-sm border">
+                                    <thead className="bg-slate-200 text-slate-700 sticky top-0">
+                                        <tr>
+                                            <th className="p-2 text-left w-24">Fecha</th>
+                                            <th className="p-2 text-left w-24">Tejedor</th>
+                                            <th className="p-2 text-right w-16">Prod.</th>
+                                            <th className="p-2 text-left">Obs.</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {/* Invertir el orden para mostrar lo más reciente arriba */}
+                                        {order.progreso?.slice().reverse().map((p, i) => (
+                                            <tr key={p.id} className="border-b hover:bg-green-50/50">
+                                                <td className="p-2">{p.fecha}</td>
+                                                <td className="p-2 font-medium">{p.tejedor}</td>
+                                                <td className="p-2 text-right font-bold text-green-700">{p.produccion}</td>
+                                                <td className="p-2 text-slate-500">{p.defectos}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                                {order.progreso?.length === 0 && (
+                                    <div className="text-center p-4 text-slate-400 italic">No hay registros de producción aún.</div>
+                                )}
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            );
+        };
+
+        // --- Componente Principal de la Aplicación ---
+        const MainApp = () => {
+            const [view, setView] = useState('list'); // list, create, detail
+            const [orders, setOrders] = useState([]);
+            const [selectedOrder, setSelectedOrder] = useState(null);
+            const [filterClient, setFilterClient] = useState('ALL');
+            const [showArchived, setShowArchived] = useState(false);
+            const [showSettings, setShowSettings] = useState(false);
+            
+            // Configuración Global
+            const [config, setConfig] = useState({
+                repoUrl: 'https://placehold.co/150x150/e0e0e0/000?text=SIN+IMAGEN', // URL base de GitHub (placeholder por defecto)
+                sequenceCounter: 1 // Consecutivo global
+            });
+
+            // Cargar datos (similar a un useEffect de inicialización)
+            useEffect(() => {
+                try {
+                    const savedOrders = localStorage.getItem('v2_produccion_orders');
+                    const savedConfig = localStorage.getItem('v2_produccion_config');
+                    if (savedOrders) setOrders(JSON.parse(savedOrders));
+                    if (savedConfig) {
+                        const parsedConfig = JSON.parse(savedConfig);
+                        // Aplicar valores por defecto si no existen en config guardada
+                        setConfig({
+                            repoUrl: parsedConfig.repoUrl || '',
+                            sequenceCounter: parsedConfig.sequenceCounter || 1
+                        });
+                    }
+                } catch (e) {
+                    console.error("Error cargando localStorage:", e);
+                }
+            }, []);
+
+            // Guardar datos (se ejecuta cada vez que cambian orders o config)
+            useEffect(() => {
+                localStorage.setItem('v2_produccion_orders', JSON.stringify(orders));
+                localStorage.setItem('v2_produccion_config', JSON.stringify(config));
+            }, [orders, config]);
+
+            const handleSaveNewOrders = (newOrdersList) => {
+                setOrders(prev => [...newOrdersList, ...prev]);
+                // Incrementar contador global solo una vez por lote
+                setConfig(prev => ({...prev, sequenceCounter: prev.sequenceCounter + 1}));
+                setView('list');
+            };
+
+            const handleUpdateProgress = (orderId, newProgress) => {
+                setOrders(prev => prev.map(o => o.id === orderId ? { ...o, progreso: newProgress } : o));
+                // Actualizar la vista de detalle si es la orden seleccionada
+                setSelectedOrder(prev => prev && prev.id === orderId ? { ...prev, progreso: newProgress } : prev);
+            };
+
+            const handleUpdateNotes = (orderId, newNotes) => {
+                setOrders(prev => prev.map(o => o.id === orderId ? { ...o, enhebrado: newNotes } : o));
+                // Actualizar la vista de detalle si es la orden seleccionada
+                setSelectedOrder(prev => prev && prev.id === orderId ? { ...prev, enhebrado: newNotes } : prev);
+            };
+
+            const handleUpdateStatus = (orderId, status) => {
+                const updated = orders.map(o => o.id === orderId ? { ...o, status } : o);
+                setOrders(updated);
+                // Si archivamos, volvemos a la lista
+                if (status === 'Archivado') {
+                    setView('list');
+                    setSelectedOrder(null);
+                } else if (selectedOrder && selectedOrder.id === orderId) {
+                    setSelectedOrder(prev => ({...prev, status}));
+                }
+            };
+
+            // Lista única de clientes para el filtro
+            const clients = useMemo(() => [...new Set(orders.map(o => o.cliente))], [orders]);
+
+            // Filtrado de órdenes
+            const filteredOrders = orders.filter(o => {
+                const matchClient = filterClient === 'ALL' || o.cliente === filterClient;
+                const matchStatus = showArchived ? o.status === 'Archivado' : o.status !== 'Archivado';
+                return matchClient && matchStatus;
+            });
+
+            return (
+                <div className="min-h-screen bg-slate-100 font-sans text-slate-800">
+                    {/* Barra de Navegación */}
+                    <nav className="bg-slate-900 text-white p-4 no-print shadow-md">
+                        <div className="max-w-7xl mx-auto flex justify-between items-center">
+                            <div className="flex items-center gap-3">
+                                <div className="bg-indigo-500 p-2 rounded-lg">
+                                    <Icon name="folder" className="text-white" />
+                                </div>
+                                <div>
+                                    <h1 className="font-bold text-lg leading-tight">Control Textil</h1>
+                                    <p className="text-xs text-slate-400">Gestión de Producción v2.0</p>
+                                </div>
+                            </div>
+                            <div className="flex gap-4">
+                                <span className="text-xs text-slate-400 mt-2 hidden md:block">Próximo ID Lote: {generateID("X", config.sequenceCounter, "")}</span>
+                                <button onClick={() => setShowSettings(true)} className="p-2 hover:bg-slate-800 rounded-full transition">
+                                    <Icon name="settings" />
+                                </button>
+                            </div>
+                        </div>
+                    </nav>
+
+                    {/* Contenido Principal */}
+                    {view === 'list' && (
+                        <div className="max-w-7xl mx-auto p-6">
+                            
+                            <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+                                <div className="flex gap-2 overflow-x-auto pb-2 w-full md:w-auto">
+                                    {/* Botones de Filtro por Cliente */}
+                                    <button 
+                                        onClick={() => setFilterClient('ALL')}
+                                        className={`px-4 py-2 rounded-full text-sm font-bold transition whitespace-nowrap ${filterClient === 'ALL' ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-slate-600 hover:bg-indigo-50 border'}`}
+                                    >
+                                        Todos ({orders.length})
+                                    </button>
+                                    {clients.map(c => (
+                                        <button 
+                                            key={c}
+                                            onClick={() => setFilterClient(c)}
+                                            className={`px-4 py-2 rounded-full text-sm font-bold transition whitespace-nowrap ${filterClient === c ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-slate-600 hover:bg-indigo-50 border'}`}
+                                        >
+                                            {c} ({orders.filter(o => o.cliente === c).length})
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <div className="flex gap-2 w-full md:w-auto">
+                                    <button onClick={() => setShowArchived(!showArchived)} className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition w-1/2 md:w-auto ${showArchived ? 'bg-amber-100 text-amber-700 hover:bg-amber-200' : 'bg-white text-slate-600 hover:bg-slate-50 border'}`}>
+                                        <Icon name="archive" size={16} /> {showArchived ? 'Activas' : 'Archivadas'}
+                                    </button>
+                                    <button onClick={() => setView('create')} className="bg-indigo-600 text-white px-6 py-2 rounded-lg shadow-lg hover:bg-indigo-700 font-bold flex items-center justify-center gap-2 w-1/2 md:w-auto transition">
+                                        <Icon name="plus" /> Nuevo Lote
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                                {filteredOrders.map(order => {
+                                    const totalProd = order.progreso?.reduce((acc, curr) => acc + Number(curr.produccion), 0) || 0;
+                                    const percentage = order.totalPedido ? Math.min(100, ((totalProd / Number(order.totalPedido)) * 100)).toFixed(0) : 0;
+                                    const isCompleted = percentage >= 100;
+                                    
+                                    return (
+                                        <div key={order.id} onClick={() => { setSelectedOrder(order); setView('detail'); }} 
+                                            className="bg-white rounded-xl shadow-md border border-slate-200 cursor-pointer hover:shadow-xl hover:-translate-y-1 transition group overflow-hidden"
+                                        >
+                                            <div className={`h-2 w-full ${isCompleted ? 'bg-green-500' : 'bg-indigo-500'}`}></div>
+                                            <div className="p-5">
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <span className="font-mono text-xs font-bold text-slate-400">{order.displayId}</span>
+                                                    <span className={`text-xs px-2 py-1 rounded font-bold ${order.status === 'Archivado' ? 'bg-amber-100 text-amber-700' : 'bg-indigo-100 text-indigo-700'}`}>{order.status === 'Archivado' ? 'Archivado' : `MQ-${order.maquina}`}</span>
+                                                </div>
+                                                <h3 className="font-bold text-lg text-slate-800 mb-1">{order.pieza}</h3>
+                                                <p className="text-sm text-slate-500 mb-4">{order.codigo}</p>
+                                                
+                                                {/* Barra de Progreso */}
+                                                <div className="mb-4">
+                                                    <div className="flex justify-between text-xs font-bold mb-1">
+                                                        <span>Progreso: {percentage}%</span>
+                                                        <span>{totalProd}/{order.totalPedido} pzs</span>
+                                                    </div>
+                                                    <div className="w-full bg-slate-200 rounded-full h-2">
+                                                        <div 
+                                                            className={`h-2 rounded-full ${isCompleted ? 'bg-green-500' : 'bg-indigo-500'}`} 
+                                                            style={{ width: `${percentage}%` }}
+                                                        ></div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex justify-between items-end border-t pt-3">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold text-xs border">
+                                                            {order.cliente.substring(0,2).toUpperCase()}
+                                                        </div>
+                                                        <span className="text-xs font-bold text-slate-700">{order.cliente}</span>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <span className="block text-xs text-slate-400">Entrega</span>
+                                                        <span className="text-xs font-bold text-indigo-600">{order.fechaFin || 'S/F'}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            
+                            {filteredOrders.length === 0 && (
+                                <div className="text-center py-20 opacity-50">
+                                    <Icon name="folder" size={64} className="mx-auto mb-4 text-slate-300" />
+                                    <p>No hay órdenes para mostrar en esta vista.</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {view === 'create' && (
+                        <MultiOrderForm 
+                            config={config} 
+                            onSave={handleSaveNewOrders} 
+                            onCancel={() => setView('list')} 
+                        />
+                    )}
+
+                    {view === 'detail' && selectedOrder && (
+                        <OrderView 
+                            order={selectedOrder}
+                            config={config}
+                            onBack={() => { setView('list'); setSelectedOrder(null); }}
+                            onUpdateProgress={handleUpdateProgress}
+                            onUpdateStatus={handleUpdateStatus}
+                            onUpdateNotes={handleUpdateNotes}
+                        />
+                    )}
+
+                    {showSettings && (
+                        <SettingsModal 
+                            config={config} 
+                            onClose={() => setShowSettings(false)} 
+                            onSave={(newConf) => { setConfig(newConf); setShowSettings(false); }} 
+                        />
+                    )}
+                </div>
+            );
+        };
+
         const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<RemoteApp />);
+        root.render(<MainApp />);
     </script>
 </body>
 </html>
