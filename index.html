@@ -19,10 +19,23 @@
             z-index: 10;
         }
         /* Fija los encabezados de grupo */
-        .group-header {
+        .group-header-row {
              position: sticky;
              top: 48px; /* Altura del thead */
              z-index: 9;
+        }
+        /* Estilo para el modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
         }
     </style>
 </head>
@@ -46,15 +59,229 @@
         const db = firebase.firestore();
         const Icon = ({ name, size = 18 }) => <i data-lucide={name} style={{ width: size, height: size }}></i>;
 
+        // =================================================================
+        // COMPONENTE 1: MODAL DE RECEPCIÓN DE STOCK (ENTRADA)
+        // =================================================================
+        const ReceptionModal = ({ items, onClose, onUpdate }) => {
+            const [selectedItem, setSelectedItem] = useState('');
+            const [kilosReceived, setKilosReceived] = useState('');
+            const [note, setNote] = useState('');
+            const [error, setError] = useState(null);
+
+            const materialOptions = items.map(i => ({ value: i.material, id: i.id, stock: i.stock, hex: i.hex, color: i.color }));
+
+            const handleSubmit = async () => {
+                const kilos = parseFloat(kilosReceived);
+                if (!selectedItem || isNaN(kilos) || kilos <= 0) {
+                    setError("Seleccione un material e ingrese una cantidad válida (mayor a 0).");
+                    return;
+                }
+                
+                const itemToUpdate = items.find(i => i.material === selectedItem);
+                if (!itemToUpdate) {
+                    setError("Material no encontrado.");
+                    return;
+                }
+
+                try {
+                    // 1. Calcular el nuevo stock
+                    const newStock = (parseFloat(itemToUpdate.stock) || 0) + kilos;
+
+                    // 2. Actualizar el inventario principal
+                    const updatedInventoryList = items.map(i => 
+                        i.id === itemToUpdate.id 
+                        ? { ...i, stock: newStock.toFixed(2) } // Actualiza el stock
+                        : i
+                    );
+
+                    await db.collection('inventory').doc('main').set({ items: updatedInventoryList });
+                    
+                    // 3. Registrar el movimiento de entrada (LOG)
+                    await db.collection('inventory_movements').add({
+                        materialId: itemToUpdate.id,
+                        materialName: itemToUpdate.material,
+                        color: itemToUpdate.color || '',
+                        hex: itemToUpdate.hex || '',
+                        type: "ENTRADA",
+                        quantityKg: kilos,
+                        currentStock: newStock.toFixed(2),
+                        date: new Date().toISOString().split('T')[0],
+                        timestamp: Date.now(),
+                        note: note || 'Recepción de stock'
+                    });
+
+                    onUpdate(); // Notificar a App que se actualizó
+                    onClose();
+                    alert(`¡Éxito! Se sumaron ${kilos} Kg a ${selectedItem}.`);
+
+                } catch (e) {
+                    console.error("Error al registrar entrada:", e);
+                    setError("Error al guardar en la base de datos.");
+                }
+            };
+
+            return (
+                <div className="modal-overlay">
+                    <div className="bg-white p-6 rounded-lg shadow-2xl w-full max-w-md">
+                        <h3 className="text-xl font-bold mb-4 text-green-700 flex items-center gap-2 border-b pb-2">
+                            <Icon name="package-plus"/> Recepción de Stock (Entrada)
+                        </h3>
+                        {error && <div className="bg-red-100 text-red-700 p-2 rounded text-xs mb-3 font-bold">{error}</div>}
+                        
+                        <div className="mb-4">
+                            <label className="block text-xs font-bold mb-1">Material</label>
+                            <select 
+                                className="w-full border p-2 rounded font-bold" 
+                                value={selectedItem} 
+                                onChange={e => { setSelectedItem(e.target.value); setError(null); }}
+                            >
+                                <option value="">Seleccione Material...</option>
+                                {materialOptions.map(m => (
+                                    <option key={m.id} value={m.value}>{m.value} - {m.color} (Stock: {m.stock} Kg)</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="mb-4">
+                            <label className="block text-xs font-bold mb-1">Kilos Recibidos (a sumar)</label>
+                            <input 
+                                type="number" 
+                                step="0.01" 
+                                placeholder="Ej: 50.00" 
+                                className="w-full border-2 border-green-300 p-2 rounded font-black text-xl text-green-700" 
+                                value={kilosReceived} 
+                                onChange={e => setKilosReceived(e.target.value)} 
+                            />
+                        </div>
+                        <div className="mb-6">
+                            <label className="block text-xs font-bold mb-1">Nota / Proveedor</label>
+                            <input 
+                                type="text" 
+                                placeholder="Ej: Recibido de Proveedor X" 
+                                className="w-full border p-2 rounded text-sm" 
+                                value={note} 
+                                onChange={e => setNote(e.target.value)} 
+                            />
+                        </div>
+                        
+                        <div className="flex justify-end gap-2">
+                            <button onClick={onClose} className="px-4 py-2 bg-slate-200 rounded font-bold text-sm">Cancelar</button>
+                            <button onClick={handleSubmit} className="px-4 py-2 bg-green-600 text-white rounded font-bold text-sm flex items-center gap-1">
+                                <Icon name="check"/> Confirmar Recepción
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // =================================================================
+        // COMPONENTE 2: MODAL DE REPORTE DE MOVIMIENTOS
+        // =================================================================
+        const ReportModal = ({ onClose }) => {
+            const [movements, setMovements] = useState([]);
+            const [loading, setLoading] = useState(true);
+
+            useEffect(() => {
+                const fetchMovements = async () => {
+                    try {
+                        const snapshot = await db.collection('inventory_movements').orderBy('timestamp', 'desc').limit(200).get();
+                        setMovements(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                        setLoading(false);
+                        setTimeout(() => lucide.createIcons(), 100);
+                    } catch (e) {
+                        console.error("Error fetching movements:", e);
+                        setLoading(false);
+                    }
+                };
+                fetchMovements();
+            }, []);
+            
+            useEffect(() => { lucide.createIcons(); }, [movements]);
+
+            const formatDate = (dateString) => new Date(dateString).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+
+            return (
+                <div className="modal-overlay">
+                    <div className="bg-white p-6 rounded-lg shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+                        <h3 className="text-xl font-bold mb-4 text-slate-800 flex items-center justify-between border-b pb-2 shrink-0">
+                            <div className="flex items-center gap-2"><Icon name="bar-chart-3"/> Informe de Movimientos de Inventario</div>
+                            <button onClick={onClose} className="text-red-500 font-bold text-sm flex items-center gap-1 hover:bg-red-50 p-1 rounded"><Icon name="x"/> CERRAR</button>
+                        </h3>
+                        
+                        {loading ? (
+                            <div className="text-center py-10 text-slate-500">Cargando movimientos...</div>
+                        ) : (
+                            <div className="overflow-y-auto flex-grow">
+                                <table className="w-full text-xs text-left">
+                                    <thead className="sticky top-0 bg-slate-100 border-b">
+                                        <tr>
+                                            <th className="p-2 w-20">Fecha</th>
+                                            <th className="p-2 w-16 text-center">Tipo</th>
+                                            <th className="p-2">Material</th>
+                                            <th className="p-2 w-20 text-right">Cantidad (Kg)</th>
+                                            <th className="p-2 w-20 text-center">Stock Final</th>
+                                            <th className="p-2">Detalle / Partida</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {movements.map(m => (
+                                            <tr key={m.id} className={`border-b ${m.type === 'ENTRADA' ? 'bg-green-50' : 'bg-red-50'}`}>
+                                                <td className="p-2 font-mono">{formatDate(m.date)}</td>
+                                                <td className="p-2 text-center font-bold">
+                                                    <span className={`px-2 py-0.5 rounded-full text-[10px] ${m.type === 'ENTRADA' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
+                                                        {m.type}
+                                                    </span>
+                                                </td>
+                                                <td className="p-2 font-bold flex items-center gap-2">
+                                                    <div 
+                                                        className="w-4 h-4 rounded-full shadow-sm border border-slate-200 shrink-0" 
+                                                        style={{ backgroundColor: m.hex || '#eee' }}
+                                                    ></div>
+                                                    {m.materialName} ({m.color})
+                                                </td>
+                                                <td className="p-2 text-right font-black">{parseFloat(m.quantityKg).toFixed(2)}</td>
+                                                <td className="p-2 text-center text-xs font-mono">{parseFloat(m.currentStock).toFixed(2)}</td>
+                                                <td className="p-2 text-[10px] text-slate-600">{m.note || m.orderId || 'N/A'}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                                {movements.length === 0 && <div className="text-center py-4 text-slate-400">No hay movimientos registrados.</div>}
+                            </div>
+                        )}
+                        
+                    </div>
+                </div>
+            );
+        };
+
+
+        // =================================================================
+        // COMPONENTE PRINCIPAL DE INVENTARIO
+        // =================================================================
         const InventoryApp = () => {
             const [items, setItems] = useState([]);
             const [loading, setLoading] = useState(true);
             
-            // AGREGADO: 'group' al estado inicial
             const [newItem, setNewItem] = useState({ material: '', color: '', hex: '#000000', calibre: '', estiraje: '', stock: '', proveedor: '', group: '' });
             const [isEditing, setIsEditing] = useState(null);
+            const [collapsedGroups, setCollapsedGroups] = useState({});
+            
+            // ESTADOS PARA MODALES
+            const [showReceptionModal, setShowReceptionModal] = useState(false);
+            const [showReportModal, setShowReportModal] = useState(false);
+
 
             // Cargar Inventario
+            const fetchInventory = () => {
+                 db.collection('inventory').doc('main').get().then(doc => {
+                    if (doc.exists) {
+                        setItems(doc.data().items || []);
+                    }
+                    setLoading(false);
+                    setTimeout(() => lucide.createIcons(), 500);
+                });
+            }
             useEffect(() => {
                 const unsubscribe = db.collection('inventory').doc('main').onSnapshot(doc => {
                     if (doc.exists) {
@@ -68,9 +295,14 @@
 
             useEffect(() => lucide.createIcons(), [items]);
             
-            // Lógica para agrupar y ordenar los items
+            const toggleGroup = (groupName) => {
+                setCollapsedGroups(prev => ({
+                    ...prev,
+                    [groupName]: !prev[groupName]
+                }));
+            };
+
             const groupedItems = useMemo(() => {
-                // 1. Ordenar items: Primero por grupo, luego por nombre de material
                 const sortedItems = [...items].sort((a, b) => {
                     const groupA = (a.group || 'SIN GRUPO').toUpperCase();
                     const groupB = (b.group || 'SIN GRUPO').toUpperCase();
@@ -82,7 +314,6 @@
                     return 0;
                 });
 
-                // 2. Agruparlos en un objeto
                 return sortedItems.reduce((acc, item) => {
                     const groupName = item.group || 'SIN GRUPO';
                     if (!acc[groupName]) {
@@ -95,15 +326,19 @@
 
 
             const handleSave = async () => {
-                if (!newItem.material || !newItem.stock) return alert("Nombre de material y Stock son obligatorios");
+                // MODIFICADO: Stock ya no es obligatorio, solo el material.
+                if (!newItem.material) return alert("El nombre del material es obligatorio");
                 
                 let updatedList;
+                
+                // Si el stock está vacío o es null, se establece en 0.
+                const stockValue = newItem.stock === '' || newItem.stock === null ? 0 : parseFloat(newItem.stock);
+
                 const payload = {
                     ...newItem,
                     id: isEditing ? newItem.id : Date.now(),
-                    stock: parseFloat(newItem.stock),
+                    stock: stockValue.toFixed(2), // Asegura que se guarde como string con 2 decimales
                     hex: newItem.hex || '#000000',
-                    // Asegurar que el grupo se guarde
                     group: newItem.group.toUpperCase() || 'SIN GRUPO',
                     updatedAt: new Date().toISOString()
                 };
@@ -115,7 +350,6 @@
                 }
 
                 await db.collection('inventory').doc('main').set({ items: updatedList });
-                // Resetear estado inicial con 'group'
                 setNewItem({ material: '', color: '', hex: '#000000', calibre: '', estiraje: '', stock: '', proveedor: '', group: '' });
                 setIsEditing(null);
             };
@@ -135,6 +369,9 @@
 
             return (
                 <div className="max-w-4xl mx-auto p-4 md:p-8">
+                    {showReceptionModal && <ReceptionModal items={items} onClose={() => setShowReceptionModal(false)} onUpdate={fetchInventory} />}
+                    {showReportModal && <ReportModal onClose={() => setShowReportModal(false)} />}
+
                     <header className="mb-8 border-b pb-4 flex justify-between items-center">
                         <div>
                             <h1 className="text-3xl font-black text-slate-800 flex gap-2 items-center">
@@ -142,8 +379,20 @@
                             </h1>
                             <p className="text-slate-500">Gestión de almacén de materia prima</p>
                         </div>
-                        <div className="text-right">
-                             <div className="text-xs font-bold text-green-600 bg-green-100 px-3 py-1 rounded-full">CONECTADO A DB</div>
+                        <div className="text-right flex flex-col gap-2">
+                            <div className="text-xs font-bold text-green-600 bg-green-100 px-3 py-1 rounded-full">CONECTADO A DB</div>
+                            <button 
+                                onClick={() => setShowReceptionModal(true)} 
+                                className="bg-yellow-600 text-white px-3 py-1 rounded font-bold text-xs flex items-center justify-center gap-1 hover:bg-yellow-700 shadow"
+                            >
+                                <Icon name="archive-box"/> RECIBIR STOCK (ENTRADA)
+                            </button>
+                            <button 
+                                onClick={() => setShowReportModal(true)} 
+                                className="bg-slate-700 text-white px-3 py-1 rounded font-bold text-xs flex items-center justify-center gap-1 hover:bg-slate-800 shadow"
+                            >
+                                <Icon name="file-text"/> SOLICITAR INFORME
+                            </button>
                         </div>
                     </header>
 
@@ -155,7 +404,7 @@
                         </h2>
                         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-4">
                             
-                            {/* CAMPO GRUPO - Nuevo */}
+                            {/* CAMPO GRUPO */}
                             <div className="md:col-span-3">
                                 <label className="block text-xs font-bold mb-1 text-indigo-700">GRUPO / CATEGORÍA</label>
                                 <input 
@@ -175,7 +424,7 @@
                             </div>
 
                             <div className="md:col-span-3">
-                                <label className="block text-xs font-bold mb-1">MATERIAL / NOMBRE</label>
+                                <label className="block text-xs font-bold mb-1">MATERIAL / NOMBRE <span className="text-red-500">*</span></label>
                                 <input placeholder="Ej. NYLON 40/2" className="w-full border-2 border-slate-300 p-2 rounded uppercase font-bold" value={newItem.material} onChange={e => setNewItem({...newItem, material: e.target.value.toUpperCase()})} />
                             </div>
                             
@@ -201,9 +450,10 @@
                                     />
                                 </div>
                             </div>
+                            {/* MODIFICADO: Stock no es obligatorio en el formulario de alta */}
                             <div className="md:col-span-4">
-                                <label className="block text-xs font-bold mb-1 text-green-700">STOCK DISPONIBLE (KG)</label>
-                                <input type="number" step="0.01" placeholder="0.00" className="w-full border-2 border-green-200 bg-green-50 p-2 rounded font-black text-xl text-green-800" value={newItem.stock} onChange={e => setNewItem({...newItem, stock: e.target.value})} />
+                                <label className="block text-xs font-bold mb-1 text-green-700">STOCK INICIAL (KG)</label>
+                                <input type="number" step="0.01" placeholder="0.00 (Opcional)" className="w-full border-2 border-green-200 bg-green-50 p-2 rounded font-black text-xl text-green-800" value={newItem.stock} onChange={e => setNewItem({...newItem, stock: e.target.value})} />
                             </div>
                             <div className="md:col-span-4">
                                 <label className="block text-xs font-bold mb-1">CALIBRE</label>
@@ -226,7 +476,7 @@
                         </div>
                     </div>
 
-                    {/* LISTA AGRUPADA */}
+                    {/* LISTA AGRUPADA CON DESPLEGABLES */}
                     <div className="bg-white rounded-lg shadow overflow-hidden">
                         <table className="inventory-table w-full text-left border-collapse">
                             <thead className="bg-slate-800 text-white text-sm uppercase">
@@ -242,46 +492,69 @@
                                 
                                 {Object.keys(groupedItems).map(groupName => (
                                     <React.Fragment key={groupName}>
-                                        {/* ENCABEZADO DE GRUPO */}
-                                        <tr>
-                                            <td colSpan="4" className="group-header p-2 bg-slate-200 font-black text-sm text-indigo-800 border-t-2 border-b-2 border-slate-300">
-                                                GRUPO: {groupName} ({groupedItems[groupName].length})
+                                        {/* ENCABEZADO DE GRUPO (BOTÓN DESPLEGABLE) */}
+                                        <tr className="group-header-row">
+                                            <td colSpan="4" className="p-0 border-t-2 border-b-2 border-slate-300">
+                                                <button 
+                                                    onClick={() => toggleGroup(groupName)}
+                                                    className="w-full flex justify-between items-center p-3 bg-slate-200 hover:bg-slate-300 font-black text-sm text-indigo-800 transition"
+                                                >
+                                                    <div className="flex items-center gap-2">
+                                                        <Icon name={collapsedGroups[groupName] ? "chevron-right" : "chevron-down"} size={20}/> 
+                                                        <span>GRUPO: {groupName} ({groupedItems[groupName].length})</span>
+                                                    </div>
+                                                    <span className="text-xs font-normal text-slate-500">Haga click para {collapsedGroups[groupName] ? 'expandir' : 'colapsar'}</span>
+                                                </button>
                                             </td>
                                         </tr>
-                                        {/* ITEMS DENTRO DEL GRUPO */}
-                                        {groupedItems[groupName].map((item) => (
-                                            <tr key={item.id} className="border-b hover:bg-slate-50 transition">
-                                                <td className="p-4">
-                                                    <div className="font-bold text-lg text-slate-800">{item.material}</div>
-                                                    <div className="flex items-center gap-2 mt-1">
-                                                        {/* CÍRCULO DE COLOR */}
-                                                        <div 
-                                                            className="w-6 h-6 rounded-full shadow-sm border border-slate-200 shrink-0" 
-                                                            style={{ backgroundColor: item.hex || '#eee' }}
-                                                            title={item.hex}
-                                                        ></div>
-                                                        <div className="text-xs text-slate-500 font-bold">{item.color}</div>
-                                                    </div>
-                                                    <div className="text-[10px] text-slate-400 mt-1">{item.proveedor}</div>
-                                                </td>
-                                                <td className="p-4">
-                                                    {item.calibre && <div className="text-xs"><span className="font-bold">Calibre:</span> {item.calibre}</div>}
-                                                    {item.estiraje && <div className="text-xs"><span className="font-bold">Estiraje:</span> {item.estiraje}</div>}
-                                                </td>
-                                                <td className="p-4 text-center">
-                                                    <span className={`inline-block px-3 py-1 rounded font-black text-lg ${item.stock < 10 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'}`}>
-                                                        {parseFloat(item.stock).toFixed(2)} Kg
-                                                    </span>
-                                                    {item.stock < 10 && <div className="text-[9px] text-red-500 font-bold mt-1">STOCK BAJO</div>}
-                                                </td>
-                                                <td className="p-4 text-right">
-                                                    <div className="flex gap-2 justify-end">
-                                                        <button onClick={() => startEdit(item)} className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded border border-blue-200"><Icon name="pencil" size={16}/></button>
-                                                        <button onClick={() => handleDelete(item.id)} className="p-2 bg-red-50 text-red-600 hover:bg-red-100 rounded border border-red-200"><Icon name="trash-2" size={16}/></button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
+                                        
+                                        {/* ITEMS DENTRO DEL GRUPO (MOSTRAR/OCULTAR) */}
+                                        {/* Solo renderiza si el grupo NO está colapsado */}
+                                        {!collapsedGroups[groupName] && groupedItems[groupName].map((item) => {
+                                            const stockFloat = parseFloat(item.stock) || 0;
+                                            const isLow = stockFloat > 0 && stockFloat < 10;
+                                            const isZero = stockFloat === 0;
+
+                                            return (
+                                                <tr key={item.id} className="border-b hover:bg-slate-50 transition">
+                                                    <td className="p-4">
+                                                        <div className="font-bold text-lg text-slate-800">{item.material}</div>
+                                                        <div className="flex flex-col gap-1 mt-2">
+                                                            {/* RECUADRO DE COLOR GRANDE Y PEGADO (no rounded) - MODIFICADO AQUÍ */}
+                                                            <div 
+                                                                className="w-full h-8 shadow-sm border border-slate-300 shrink-0" 
+                                                                style={{ backgroundColor: item.hex || '#eee' }}
+                                                                title={`Código HEX: ${item.hex}`}
+                                                            ></div>
+                                                            <div className="flex items-center justify-between">
+                                                                <div className="text-xs text-slate-500 font-bold">{item.color}</div>
+                                                                <div className="text-[10px] text-slate-400 font-mono">{item.hex}</div>
+                                                            </div>
+                                                            <div className="text-[10px] text-slate-400">{item.proveedor}</div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="p-4">
+                                                        {item.calibre && <div className="text-xs"><span className="font-bold">Calibre:</span> {item.calibre}</div>}
+                                                        {item.estiraje && <div className="text-xs"><span className="font-bold">Estiraje:</span> {item.estiraje}</div>}
+                                                    </td>
+                                                    <td className="p-4 text-center">
+                                                        <span className={`inline-block px-3 py-1 rounded font-black text-lg 
+                                                            ${isZero ? 'bg-slate-200 text-slate-600' : isLow ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'}
+                                                        `}>
+                                                            {isZero ? '0.00' : stockFloat.toFixed(2)} Kg
+                                                        </span>
+                                                        {isZero && <div className="text-[9px] text-slate-500 font-bold mt-1">SIN EXISTENCIA</div>}
+                                                        {isLow && <div className="text-[9px] text-red-500 font-bold mt-1">STOCK BAJO</div>}
+                                                    </td>
+                                                    <td className="p-4 text-right">
+                                                        <div className="flex gap-2 justify-end">
+                                                            <button onClick={() => startEdit(item)} className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded border border-blue-200" title="Editar detalles"><Icon name="pencil" size={16}/></button>
+                                                            <button onClick={() => handleDelete(item.id)} className="p-2 bg-red-50 text-red-600 hover:bg-red-100 rounded border border-red-200" title="Eliminar"><Icon name="trash-2" size={16}/></button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
                                     </React.Fragment>
                                 ))}
                             </tbody>
