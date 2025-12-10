@@ -11,6 +11,20 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <style>
+        /* Fija el encabezado de la tabla para que sea visible al hacer scroll */
+        .inventory-table thead {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        /* Fija los encabezados de grupo */
+        .group-header {
+             position: sticky;
+             top: 48px; /* Altura del thead */
+             z-index: 9;
+        }
+    </style>
 </head>
 <body class="bg-slate-50 text-slate-800 font-sans">
     <div id="root"></div>
@@ -35,8 +49,9 @@
         const InventoryApp = () => {
             const [items, setItems] = useState([]);
             const [loading, setLoading] = useState(true);
-            // Agregamos 'hex' al estado inicial
-            const [newItem, setNewItem] = useState({ material: '', color: '', hex: '#000000', calibre: '', estiraje: '', stock: '', proveedor: '' });
+            
+            // AGREGADO: 'group' al estado inicial
+            const [newItem, setNewItem] = useState({ material: '', color: '', hex: '#000000', calibre: '', estiraje: '', stock: '', proveedor: '', group: '' });
             const [isEditing, setIsEditing] = useState(null);
 
             // Cargar Inventario
@@ -52,6 +67,32 @@
             }, []);
 
             useEffect(() => lucide.createIcons(), [items]);
+            
+            // Lógica para agrupar y ordenar los items
+            const groupedItems = useMemo(() => {
+                // 1. Ordenar items: Primero por grupo, luego por nombre de material
+                const sortedItems = [...items].sort((a, b) => {
+                    const groupA = (a.group || 'SIN GRUPO').toUpperCase();
+                    const groupB = (b.group || 'SIN GRUPO').toUpperCase();
+                    if (groupA < groupB) return -1;
+                    if (groupA > groupB) return 1;
+                    
+                    if (a.material < b.material) return -1;
+                    if (a.material > b.material) return 1;
+                    return 0;
+                });
+
+                // 2. Agruparlos en un objeto
+                return sortedItems.reduce((acc, item) => {
+                    const groupName = item.group || 'SIN GRUPO';
+                    if (!acc[groupName]) {
+                        acc[groupName] = [];
+                    }
+                    acc[groupName].push(item);
+                    return acc;
+                }, {});
+            }, [items]);
+
 
             const handleSave = async () => {
                 if (!newItem.material || !newItem.stock) return alert("Nombre de material y Stock son obligatorios");
@@ -61,8 +102,9 @@
                     ...newItem,
                     id: isEditing ? newItem.id : Date.now(),
                     stock: parseFloat(newItem.stock),
-                    // Aseguramos que se guarde el hex, si no hay, ponemos negro por defecto
                     hex: newItem.hex || '#000000',
+                    // Asegurar que el grupo se guarde
+                    group: newItem.group.toUpperCase() || 'SIN GRUPO',
                     updatedAt: new Date().toISOString()
                 };
 
@@ -73,7 +115,8 @@
                 }
 
                 await db.collection('inventory').doc('main').set({ items: updatedList });
-                setNewItem({ material: '', color: '', hex: '#000000', calibre: '', estiraje: '', stock: '', proveedor: '' });
+                // Resetear estado inicial con 'group'
+                setNewItem({ material: '', color: '', hex: '#000000', calibre: '', estiraje: '', stock: '', proveedor: '', group: '' });
                 setIsEditing(null);
             };
 
@@ -111,17 +154,36 @@
                             {isEditing ? "Editar Hilatura" : "Agregar Nueva Hilatura"}
                         </h2>
                         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-4">
-                            <div className="md:col-span-4">
+                            
+                            {/* CAMPO GRUPO - Nuevo */}
+                            <div className="md:col-span-3">
+                                <label className="block text-xs font-bold mb-1 text-indigo-700">GRUPO / CATEGORÍA</label>
+                                <input 
+                                    list="groups" 
+                                    placeholder="Ej. NYLON" 
+                                    className="w-full border-2 border-indigo-300 p-2 rounded uppercase font-bold text-indigo-700" 
+                                    value={newItem.group} 
+                                    onChange={e => setNewItem({...newItem, group: e.target.value.toUpperCase()})} 
+                                />
+                                <datalist id="groups">
+                                    <option value="NYLON" />
+                                    <option value="POLIESTER SPUN" />
+                                    <option value="POLIESTER SANTONI" />
+                                    <option value="ALGODÓN" />
+                                    <option value="OTRO" />
+                                </datalist>
+                            </div>
+
+                            <div className="md:col-span-3">
                                 <label className="block text-xs font-bold mb-1">MATERIAL / NOMBRE</label>
                                 <input placeholder="Ej. NYLON 40/2" className="w-full border-2 border-slate-300 p-2 rounded uppercase font-bold" value={newItem.material} onChange={e => setNewItem({...newItem, material: e.target.value.toUpperCase()})} />
                             </div>
                             
-                            {/* SECCIÓN DE COLOR Y HEX */}
                             <div className="md:col-span-3">
                                 <label className="block text-xs font-bold mb-1">NOMBRE COLOR</label>
                                 <input placeholder="Ej. ROJO FUEGO" className="w-full border p-2 rounded uppercase mb-2" value={newItem.color} onChange={e => setNewItem({...newItem, color: e.target.value.toUpperCase()})} />
                             </div>
-                            <div className="md:col-span-2">
+                            <div className="md:col-span-3">
                                 <label className="block text-xs font-bold mb-1">COLOR (HEX)</label>
                                 <div className="flex items-center gap-1">
                                     <input 
@@ -139,8 +201,7 @@
                                     />
                                 </div>
                             </div>
-
-                            <div className="md:col-span-3">
+                            <div className="md:col-span-4">
                                 <label className="block text-xs font-bold mb-1 text-green-700">STOCK DISPONIBLE (KG)</label>
                                 <input type="number" step="0.01" placeholder="0.00" className="w-full border-2 border-green-200 bg-green-50 p-2 rounded font-black text-xl text-green-800" value={newItem.stock} onChange={e => setNewItem({...newItem, stock: e.target.value})} />
                             </div>
@@ -158,16 +219,16 @@
                             </div>
                         </div>
                         <div className="flex gap-2 justify-end">
-                            {isEditing && <button onClick={() => { setIsEditing(null); setNewItem({ material: '', color: '', hex: '#000000', calibre: '', estiraje: '', stock: '', proveedor: '' }); }} className="bg-slate-500 text-white px-4 py-2 rounded font-bold">CANCELAR</button>}
+                            {isEditing && <button onClick={() => { setIsEditing(null); setNewItem({ material: '', color: '', hex: '#000000', calibre: '', estiraje: '', stock: '', proveedor: '', group: '' }); }} className="bg-slate-500 text-white px-4 py-2 rounded font-bold">CANCELAR</button>}
                             <button onClick={handleSave} className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded font-bold shadow flex gap-2 items-center">
                                 <Icon name="save"/> GUARDAR DATOS
                             </button>
                         </div>
                     </div>
 
-                    {/* LISTA */}
+                    {/* LISTA AGRUPADA */}
                     <div className="bg-white rounded-lg shadow overflow-hidden">
-                        <table className="w-full text-left border-collapse">
+                        <table className="inventory-table w-full text-left border-collapse">
                             <thead className="bg-slate-800 text-white text-sm uppercase">
                                 <tr>
                                     <th className="p-4">Material / Color</th>
@@ -177,39 +238,51 @@
                                 </tr>
                             </thead>
                             <tbody className="text-sm">
-                                {items.length === 0 && <tr><td colSpan="4" className="p-8 text-center text-slate-400">No hay hilaturas registradas.</td></tr>}
-                                {items.map((item) => (
-                                    <tr key={item.id} className="border-b hover:bg-slate-50 transition">
-                                        <td className="p-4">
-                                            <div className="font-bold text-lg text-slate-800">{item.material}</div>
-                                            <div className="flex items-center gap-2 mt-1">
-                                                {/* CÍRCULO DE COLOR */}
-                                                <div 
-                                                    className="w-6 h-6 rounded-full shadow-sm border border-slate-200 shrink-0" 
-                                                    style={{ backgroundColor: item.hex || '#eee' }}
-                                                    title={item.hex}
-                                                ></div>
-                                                <div className="text-xs text-slate-500 font-bold">{item.color}</div>
-                                            </div>
-                                            <div className="text-[10px] text-slate-400 mt-1">{item.proveedor}</div>
-                                        </td>
-                                        <td className="p-4">
-                                            {item.calibre && <div className="text-xs"><span className="font-bold">Calibre:</span> {item.calibre}</div>}
-                                            {item.estiraje && <div className="text-xs"><span className="font-bold">Estiraje:</span> {item.estiraje}</div>}
-                                        </td>
-                                        <td className="p-4 text-center">
-                                            <span className={`inline-block px-3 py-1 rounded font-black text-lg ${item.stock < 10 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'}`}>
-                                                {parseFloat(item.stock).toFixed(2)} Kg
-                                            </span>
-                                            {item.stock < 10 && <div className="text-[9px] text-red-500 font-bold mt-1">STOCK BAJO</div>}
-                                        </td>
-                                        <td className="p-4 text-right">
-                                            <div className="flex gap-2 justify-end">
-                                                <button onClick={() => startEdit(item)} className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded border border-blue-200"><Icon name="pencil" size={16}/></button>
-                                                <button onClick={() => handleDelete(item.id)} className="p-2 bg-red-50 text-red-600 hover:bg-red-100 rounded border border-red-200"><Icon name="trash-2" size={16}/></button>
-                                            </div>
-                                        </td>
-                                    </tr>
+                                {Object.keys(groupedItems).length === 0 && <tr><td colSpan="4" className="p-8 text-center text-slate-400">No hay hilaturas registradas.</td></tr>}
+                                
+                                {Object.keys(groupedItems).map(groupName => (
+                                    <React.Fragment key={groupName}>
+                                        {/* ENCABEZADO DE GRUPO */}
+                                        <tr>
+                                            <td colSpan="4" className="group-header p-2 bg-slate-200 font-black text-sm text-indigo-800 border-t-2 border-b-2 border-slate-300">
+                                                GRUPO: {groupName} ({groupedItems[groupName].length})
+                                            </td>
+                                        </tr>
+                                        {/* ITEMS DENTRO DEL GRUPO */}
+                                        {groupedItems[groupName].map((item) => (
+                                            <tr key={item.id} className="border-b hover:bg-slate-50 transition">
+                                                <td className="p-4">
+                                                    <div className="font-bold text-lg text-slate-800">{item.material}</div>
+                                                    <div className="flex items-center gap-2 mt-1">
+                                                        {/* CÍRCULO DE COLOR */}
+                                                        <div 
+                                                            className="w-6 h-6 rounded-full shadow-sm border border-slate-200 shrink-0" 
+                                                            style={{ backgroundColor: item.hex || '#eee' }}
+                                                            title={item.hex}
+                                                        ></div>
+                                                        <div className="text-xs text-slate-500 font-bold">{item.color}</div>
+                                                    </div>
+                                                    <div className="text-[10px] text-slate-400 mt-1">{item.proveedor}</div>
+                                                </td>
+                                                <td className="p-4">
+                                                    {item.calibre && <div className="text-xs"><span className="font-bold">Calibre:</span> {item.calibre}</div>}
+                                                    {item.estiraje && <div className="text-xs"><span className="font-bold">Estiraje:</span> {item.estiraje}</div>}
+                                                </td>
+                                                <td className="p-4 text-center">
+                                                    <span className={`inline-block px-3 py-1 rounded font-black text-lg ${item.stock < 10 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'}`}>
+                                                        {parseFloat(item.stock).toFixed(2)} Kg
+                                                    </span>
+                                                    {item.stock < 10 && <div className="text-[9px] text-red-500 font-bold mt-1">STOCK BAJO</div>}
+                                                </td>
+                                                <td className="p-4 text-right">
+                                                    <div className="flex gap-2 justify-end">
+                                                        <button onClick={() => startEdit(item)} className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded border border-blue-200"><Icon name="pencil" size={16}/></button>
+                                                        <button onClick={() => handleDelete(item.id)} className="p-2 bg-red-50 text-red-600 hover:bg-red-100 rounded border border-red-200"><Icon name="trash-2" size={16}/></button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </React.Fragment>
                                 ))}
                             </tbody>
                         </table>
