@@ -61,6 +61,7 @@
 
         // =================================================================
         // COMPONENTE 1: MODAL DE RECEPCIÓN DE STOCK (ENTRADA)
+        // (Sin cambios, se mantiene el código original)
         // =================================================================
         const ReceptionModal = ({ items, onClose, onUpdate }) => {
             const [selectedItem, setSelectedItem] = useState('');
@@ -176,6 +177,7 @@
 
         // =================================================================
         // COMPONENTE 2: MODAL DE REPORTE DE MOVIMIENTOS
+        // (Sin cambios, se mantiene el código original)
         // =================================================================
         const ReportModal = ({ onClose }) => {
             const [movements, setMovements] = useState([]);
@@ -255,7 +257,52 @@
             );
         };
 
+        // =================================================================
+        // COMPONENTE NUEVO: TARJETA DE ITEM EN VISTA MOSAICO (GRID)
+        // =================================================================
+        const GridItemCard = ({ item, startEdit, handleDelete }) => {
+            const stockFloat = parseFloat(item.stock) || 0;
+            const isLow = stockFloat > 0 && stockFloat < 10;
+            const isZero = stockFloat === 0;
 
+            return (
+                <div className="bg-white border rounded-lg shadow-md p-4 flex flex-col justify-between hover:shadow-lg transition">
+                    <div>
+                        <div 
+                            className="w-full h-10 rounded-t-lg mb-2 shadow-inner border border-slate-200" 
+                            style={{ backgroundColor: item.hex || '#eee' }}
+                            title={`Código HEX: ${item.hex}`}
+                        ></div>
+                        <div className="font-bold text-lg text-slate-800 truncate">{item.material}</div>
+                        <div className="text-sm text-slate-600 font-medium mb-2">{item.color}</div>
+                        
+                        <div className="text-xs text-slate-500 mt-2">
+                            {item.calibre && <p><span className="font-bold">Calibre:</span> {item.calibre}</p>}
+                            {item.estiraje && <p><span className="font-bold">Estiraje:</span> {item.estiraje}</p>}
+                            {item.proveedor && <p className="text-[10px] truncate"><span className="font-bold">Prov:</span> {item.proveedor}</p>}
+                        </div>
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t">
+                        <div className="text-center mb-3">
+                            <span className={`inline-block px-3 py-1 rounded font-black text-xl 
+                                ${isZero ? 'bg-slate-200 text-slate-600' : isLow ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'}
+                            `}>
+                                {isZero ? '0.00' : stockFloat.toFixed(2)} Kg
+                            </span>
+                            {isZero && <div className="text-[9px] text-slate-500 font-bold mt-1">SIN EXISTENCIA</div>}
+                            {isLow && <div className="text-[9px] text-red-500 font-bold mt-1">STOCK BAJO</div>}
+                        </div>
+                        
+                        <div className="flex gap-2 justify-center">
+                            <button onClick={() => startEdit(item)} className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded border border-blue-200" title="Editar detalles"><Icon name="pencil" size={16}/></button>
+                            <button onClick={() => handleDelete(item.id)} className="p-2 bg-red-50 text-red-600 hover:bg-red-100 rounded border border-red-200" title="Eliminar"><Icon name="trash-2" size={16}/></button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+        
         // =================================================================
         // COMPONENTE PRINCIPAL DE INVENTARIO
         // =================================================================
@@ -265,7 +312,10 @@
             
             const [newItem, setNewItem] = useState({ material: '', color: '', hex: '#000000', calibre: '', estiraje: '', stock: '', proveedor: '', group: '' });
             const [isEditing, setIsEditing] = useState(null);
+            
+            // ESTADOS MODIFICADOS: Colapsado y Vista (list/grid) por grupo
             const [collapsedGroups, setCollapsedGroups] = useState({});
+            const [groupViews, setGroupViews] = useState({}); // Nuevo estado: 'list' o 'grid'
             
             // ESTADOS PARA MODALES
             const [showReceptionModal, setShowReceptionModal] = useState(false);
@@ -312,6 +362,14 @@
                 setCollapsedGroups(prev => ({
                     ...prev,
                     [groupName]: !prev[groupName]
+                }));
+            };
+            
+            // LÓGICA AGREGADA: CAMBIAR VISTA POR GRUPO
+            const toggleGroupView = (groupName) => {
+                setGroupViews(prev => ({
+                    ...prev,
+                    [groupName]: prev[groupName] === 'grid' ? 'list' : 'grid'
                 }));
             };
 
@@ -378,7 +436,7 @@
             };
 
             return (
-                <div className="max-w-4xl mx-auto p-4 md:p-8">
+                <div className="max-w-7xl mx-auto p-4 md:p-8"> {/* CAMBIO: max-w-7xl para vista de escritorio */}
                     {showReceptionModal && <ReceptionModal items={items} onClose={() => setShowReceptionModal(false)} onUpdate={fetchInventory} />}
                     {showReportModal && <ReportModal onClose={() => setShowReportModal(false)} />}
 
@@ -412,6 +470,7 @@
                             <Icon name={isEditing ? "edit" : "plus-circle"}/> 
                             {isEditing ? "Editar Hilatura" : "Agregar Nueva Hilatura"}
                         </h2>
+                        {/* El formulario ya utiliza una cuadrícula (grid) que se adapta bien a vista de escritorio (md:grid-cols-12) */}
                         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-4">
                             
                             {/* CAMPO GRUPO */}
@@ -506,82 +565,120 @@
                     <div className="bg-white rounded-lg shadow overflow-hidden">
                         <table className="inventory-table w-full text-left border-collapse">
                             <thead className="bg-slate-800 text-white text-sm uppercase">
-                                <tr>
-                                    <th className="p-4">Material / Color</th>
-                                    <th className="p-4">Detalles Técnicos</th>
-                                    <th className="p-4 text-center">Stock (Kg)</th>
-                                    <th className="p-4 text-right">Acciones</th>
-                                </tr>
+                                {/* Solo mostramos los encabezados de tabla si AL MENOS UN grupo está en vista de lista */}
+                                {Object.keys(groupedItems).some(groupName => (groupViews[groupName] || 'list') === 'list') && (
+                                    <tr>
+                                        <th className="p-4">Material / Color</th>
+                                        <th className="p-4">Detalles Técnicos</th>
+                                        <th className="p-4 text-center">Stock (Kg)</th>
+                                        <th className="p-4 text-right">Acciones</th>
+                                    </tr>
+                                )}
                             </thead>
                             <tbody className="text-sm">
                                 {Object.keys(groupedItems).length === 0 && <tr><td colSpan="4" className="p-8 text-center text-slate-400">No hay hilaturas registradas.</td></tr>}
                                 
-                                {Object.keys(groupedItems).map(groupName => (
-                                    <React.Fragment key={groupName}>
-                                        {/* ENCABEZADO DE GRUPO (BOTÓN DESPLEGABLE) */}
-                                        <tr className="group-header-row">
-                                            <td colSpan="4" className="p-0 border-t-2 border-b-2 border-slate-300">
-                                                <button 
-                                                    onClick={() => toggleGroup(groupName)}
-                                                    className="w-full flex justify-between items-center p-3 bg-slate-200 hover:bg-slate-300 font-black text-sm text-indigo-800 transition"
-                                                >
-                                                    <div className="flex items-center gap-2">
-                                                        <Icon name={collapsedGroups[groupName] ? "chevron-right" : "chevron-down"} size={20}/> 
-                                                        <span>GRUPO: {groupName} ({groupedItems[groupName].length})</span>
+                                {Object.keys(groupedItems).map(groupName => {
+                                    const currentView = groupViews[groupName] || 'list'; // Default a 'list'
+                                    
+                                    return (
+                                        <React.Fragment key={groupName}>
+                                            {/* ENCABEZADO DE GRUPO (BOTÓN DESPLEGABLE Y DE VISTA) */}
+                                            <tr className="group-header-row">
+                                                <td colSpan="4" className="p-0 border-t-2 border-b-2 border-slate-300">
+                                                    <div className="w-full flex justify-between items-center p-2 bg-slate-200 hover:bg-slate-300 transition">
+                                                        <button 
+                                                            onClick={() => toggleGroup(groupName)}
+                                                            className="flex items-center gap-2 p-1 font-black text-sm text-indigo-800"
+                                                        >
+                                                            <Icon name={collapsedGroups[groupName] ? "chevron-right" : "chevron-down"} size={20}/> 
+                                                            <span>GRUPO: {groupName} ({groupedItems[groupName].length})</span>
+                                                        </button>
+                                                        
+                                                        {/* BOTONES DE VISTA */}
+                                                        <div className="flex gap-1">
+                                                            <button 
+                                                                onClick={() => toggleGroupView(groupName)}
+                                                                className={`p-2 rounded text-xs font-bold transition flex items-center gap-1 ${currentView === 'grid' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-300'}`}
+                                                                title={currentView === 'grid' ? 'Cambiar a Vista de Lista' : 'Cambiar a Vista Mosaico'}
+                                                            >
+                                                                <Icon name={currentView === 'grid' ? "list" : "grid"} size={16}/> 
+                                                                {currentView === 'grid' ? 'Ver Lista' : 'Ver Mosaico'}
+                                                            </button>
+                                                        </div>
                                                     </div>
-                                                    <span className="text-xs font-normal text-slate-500">Haga click para {collapsedGroups[groupName] ? 'expandir' : 'colapsar'}</span>
-                                                </button>
-                                            </td>
-                                        </tr>
-                                        
-                                        {/* ITEMS DENTRO DEL GRUPO (MOSTRAR/OCULTAR) */}
-                                        {/* Solo renderiza si el grupo NO está colapsado */}
-                                        {!collapsedGroups[groupName] && groupedItems[groupName].map((item) => {
-                                            const stockFloat = parseFloat(item.stock) || 0;
-                                            const isLow = stockFloat > 0 && stockFloat < 10;
-                                            const isZero = stockFloat === 0;
+                                                </td>
+                                            </tr>
+                                            
+                                            {/* CONTENIDO DEL GRUPO (LISTA O MOSAICO) */}
+                                            {!collapsedGroups[groupName] && (
+                                                currentView === 'list' ? (
+                                                    // VISTA DE LISTA (TABLA)
+                                                    groupedItems[groupName].map((item) => {
+                                                        const stockFloat = parseFloat(item.stock) || 0;
+                                                        const isLow = stockFloat > 0 && stockFloat < 10;
+                                                        const isZero = stockFloat === 0;
 
-                                            return (
-                                                <tr key={item.id} className="border-b hover:bg-slate-50 transition">
-                                                    <td className="p-4">
-                                                        <div className="font-bold text-lg text-slate-800">{item.material}</div>
-                                                        <div className="flex flex-col gap-1 mt-2">
-                                                            <div 
-                                                                className="w-full h-8 shadow-sm border border-slate-300 shrink-0" 
-                                                                style={{ backgroundColor: item.hex || '#eee' }}
-                                                                title={`Código HEX: ${item.hex}`}
-                                                            ></div>
-                                                            <div className="flex items-center justify-between">
-                                                                <div className="text-xs text-slate-500 font-bold">{item.color}</div>
-                                                                <div className="text-[10px] text-slate-400 font-mono">{item.hex}</div>
+                                                        return (
+                                                            <tr key={item.id} className="border-b hover:bg-slate-50 transition">
+                                                                <td className="p-4">
+                                                                    <div className="font-bold text-lg text-slate-800">{item.material}</div>
+                                                                    <div className="flex flex-col gap-1 mt-2">
+                                                                        <div 
+                                                                            className="w-full h-8 shadow-sm border border-slate-300 shrink-0" 
+                                                                            style={{ backgroundColor: item.hex || '#eee' }}
+                                                                            title={`Código HEX: ${item.hex}`}
+                                                                        ></div>
+                                                                        <div className="flex items-center justify-between">
+                                                                            <div className="text-xs text-slate-500 font-bold">{item.color}</div>
+                                                                            <div className="text-[10px] text-slate-400 font-mono">{item.hex}</div>
+                                                                        </div>
+                                                                        <div className="text-[10px] text-slate-400">{item.proveedor}</div>
+                                                                    </div>
+                                                                </td>
+                                                                <td className="p-4">
+                                                                    {item.calibre && <div className="text-xs"><span className="font-bold">Calibre:</span> {item.calibre}</div>}
+                                                                    {item.estiraje && <div className="text-xs"><span className="font-bold">Estiraje:</span> {item.estiraje}</div>}
+                                                                </td>
+                                                                <td className="p-4 text-center">
+                                                                    <span className={`inline-block px-3 py-1 rounded font-black text-lg 
+                                                                        ${isZero ? 'bg-slate-200 text-slate-600' : isLow ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'}
+                                                                    `}>
+                                                                        {isZero ? '0.00' : stockFloat.toFixed(2)} Kg
+                                                                    </span>
+                                                                    {isZero && <div className="text-[9px] text-slate-500 font-bold mt-1">SIN EXISTENCIA</div>}
+                                                                    {isLow && <div className="text-[9px] text-red-500 font-bold mt-1">STOCK BAJO</div>}
+                                                                </td>
+                                                                <td className="p-4 text-right">
+                                                                    <div className="flex gap-2 justify-end">
+                                                                        <button onClick={() => startEdit(item)} className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded border border-blue-200" title="Editar detalles"><Icon name="pencil" size={16}/></button>
+                                                                        <button onClick={() => handleDelete(item.id)} className="p-2 bg-red-50 text-red-600 hover:bg-red-100 rounded border border-red-200" title="Eliminar"><Icon name="trash-2" size={16}/></button>
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })
+                                                ) : (
+                                                    // VISTA DE MOSAICO (GRID)
+                                                    <tr>
+                                                        <td colSpan="4" className="p-4 bg-slate-50">
+                                                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                                                                {groupedItems[groupName].map((item) => (
+                                                                    <GridItemCard 
+                                                                        key={item.id}
+                                                                        item={item}
+                                                                        startEdit={startEdit}
+                                                                        handleDelete={handleDelete}
+                                                                    />
+                                                                ))}
                                                             </div>
-                                                            <div className="text-[10px] text-slate-400">{item.proveedor}</div>
-                                                        </div>
-                                                    </td>
-                                                    <td className="p-4">
-                                                        {item.calibre && <div className="text-xs"><span className="font-bold">Calibre:</span> {item.calibre}</div>}
-                                                        {item.estiraje && <div className="text-xs"><span className="font-bold">Estiraje:</span> {item.estiraje}</div>}
-                                                    </td>
-                                                    <td className="p-4 text-center">
-                                                        <span className={`inline-block px-3 py-1 rounded font-black text-lg 
-                                                            ${isZero ? 'bg-slate-200 text-slate-600' : isLow ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'}
-                                                        `}>
-                                                            {isZero ? '0.00' : stockFloat.toFixed(2)} Kg
-                                                        </span>
-                                                        {isZero && <div className="text-[9px] text-slate-500 font-bold mt-1">SIN EXISTENCIA</div>}
-                                                        {isLow && <div className="text-[9px] text-red-500 font-bold mt-1">STOCK BAJO</div>}
-                                                    </td>
-                                                    <td className="p-4 text-right">
-                                                        <div className="flex gap-2 justify-end">
-                                                            <button onClick={() => startEdit(item)} className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded border border-blue-200" title="Editar detalles"><Icon name="pencil" size={16}/></button>
-                                                            <button onClick={() => handleDelete(item.id)} className="p-2 bg-red-50 text-red-600 hover:bg-red-100 rounded border border-red-200" title="Eliminar"><Icon name="trash-2" size={16}/></button>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </React.Fragment>
-                                ))}
+                                                        </td>
+                                                    </tr>
+                                                )
+                                            )}
+                                        </React.Fragment>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>
