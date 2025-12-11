@@ -162,7 +162,7 @@
         const Icon = ({ name, size = 18 }) => <i data-lucide={name} style={{ width: size, height: size }}></i>;
 
         // =================================================================
-        // NUEVO COMPONENTE: MODAL PALETA DE COLORES SPUN
+        // COMPONENTE: MODAL PALETA DE COLORES SPUN
         // =================================================================
         const ColorPaletteModal = ({ onClose }) => {
             return (
@@ -202,7 +202,7 @@
         };
 
         // =================================================================
-        // NUEVO COMPONENTE: MODAL DE BITÁCORA (LOG) POR ITEM
+        // COMPONENTE: MODAL DE BITÁCORA (LOG) POR ITEM
         // =================================================================
         const ItemLogModal = ({ item, onClose }) => {
             const [movements, setMovements] = useState([]);
@@ -317,7 +317,6 @@
 
         // =================================================================
         // COMPONENTE 1: MODAL DE RECEPCIÓN DE STOCK (ENTRADA)
-        // (Se mantiene, pero se asegura de que el log se grabe con timestamp)
         // =================================================================
         const ReceptionModal = ({ items, onClose, onUpdate }) => {
             const [selectedItem, setSelectedItem] = useState('');
@@ -433,7 +432,6 @@
 
         // =================================================================
         // COMPONENTE 2: MODAL DE REPORTE DE MOVIMIENTOS
-        // (Actualizado para mostrar 'SALIDA_ORDEN')
         // =================================================================
         const ReportModal = ({ onClose }) => {
             const [movements, setMovements] = useState([]);
@@ -555,12 +553,15 @@
             const [isEditing, setIsEditing] = useState(null);
             const [collapsedGroups, setCollapsedGroups] = useState({});
             
+            // NUEVO: Estado para el modo de vista (grid o table)
+            const [viewMode, setViewMode] = useState('grid');
+            
             // ESTADOS PARA MODALES
             const [showReceptionModal, setShowReceptionModal] = useState(false);
             const [showReportModal, setShowReportModal] = useState(false);
-            const [showPaletteModal, setShowPaletteModal] = useState(false); // NUEVO
-            const [showItemLogModal, setShowItemLogModal] = useState(false); // NUEVO
-            const [selectedItemForLog, setSelectedItemForLog] = useState(null); // NUEVO
+            const [showPaletteModal, setShowPaletteModal] = useState(false);
+            const [showItemLogModal, setShowItemLogModal] = useState(false);
+            const [selectedItemForLog, setSelectedItemForLog] = useState(null);
 
 
             // Cargar Inventario
@@ -699,42 +700,71 @@
             }
 
             return (
-                <div className="max-w-4xl mx-auto p-4 md:p-8">
+                // Contenedor principal responsive: max-w-7xl en pantallas grandes
+                <div className="container mx-auto p-4 md:p-8 lg:max-w-7xl"> 
                     {showReceptionModal && <ReceptionModal items={items} onClose={() => setShowReceptionModal(false)} onUpdate={fetchInventory} />}
                     {showReportModal && <ReportModal onClose={() => setShowReportModal(false)} />}
                     {showPaletteModal && <ColorPaletteModal onClose={() => setShowPaletteModal(false)} />}
                     {showItemLogModal && <ItemLogModal item={selectedItemForLog} onClose={() => setShowItemLogModal(false)} />}
 
 
-                    <header className="mb-8 border-b pb-4 flex justify-between items-center">
+                    <header className="mb-8 border-b pb-4 flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+                        {/* 1. Título */}
                         <div>
                             <h1 className="text-3xl font-black text-slate-800 flex gap-2 items-center">
                                 <Icon name="package-search" size={32}/> INVENTARIO HILATURAS
                             </h1>
                             <p className="text-slate-500">Gestión de almacén de materia prima</p>
                         </div>
-                        <div className="text-right flex flex-col gap-2">
-                            <div className="text-xs font-bold text-green-600 bg-green-100 px-3 py-1 rounded-full">CONECTADO A DB</div>
+                        
+                        {/* 2. Botones de Acción y Selector de Vista (Distribuidos en escritorio) */}
+                        <div className="flex flex-col md:flex-row md:items-center md:gap-4 w-full md:w-auto">
                             
-                            <button 
-                                onClick={() => setShowPaletteModal(true)} 
-                                className="bg-indigo-600 text-white px-3 py-1 rounded font-bold text-xs flex items-center justify-center gap-1 hover:bg-indigo-700 shadow"
-                            >
-                                <Icon name="palette"/> PALETA COLORES SPUN
-                            </button>
-                            
-                            <button 
-                                onClick={() => setShowReceptionModal(true)} 
-                                className="bg-yellow-600 text-white px-3 py-1 rounded font-bold text-xs flex items-center justify-center gap-1 hover:bg-yellow-700 shadow"
-                            >
-                                <Icon name="archive-box"/> RECIBIR STOCK (ENTRADA)
-                            </button>
-                            <button 
-                                onClick={() => setShowReportModal(true)} 
-                                className="bg-slate-700 text-white px-3 py-1 rounded font-bold text-xs flex items-center justify-center gap-1 hover:bg-slate-800 shadow"
-                            >
-                                <Icon name="file-text"/> SOLICITAR INFORME
-                            </button>
+                            {/* Estado de Conexión (Oculto en móvil, visible en desktop) */}
+                            <div className="hidden md:block text-xs font-bold text-green-600 bg-green-100 px-3 py-1 rounded-full shrink-0">CONECTADO A DB</div>
+
+                            {/* Selector de Vista (Siempre visible) */}
+                            <div className="flex gap-2 justify-center md:justify-start order-1 md:order-none mb-2 md:mb-0">
+                                <button 
+                                    onClick={() => setViewMode('grid')} 
+                                    className={`px-3 py-1 rounded font-bold text-xs flex items-center justify-center gap-1 ${viewMode === 'grid' ? 'bg-blue-600 text-white shadow' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}
+                                    title="Vista en Cuadrícula (Miniatura)"
+                                >
+                                    <Icon name="layout-grid"/> Cuadrícula
+                                </button>
+                                <button 
+                                    onClick={() => setViewMode('table')} 
+                                    className={`px-3 py-1 rounded font-bold text-xs flex items-center justify-center gap-1 ${viewMode === 'table' ? 'bg-blue-600 text-white shadow' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}
+                                    title="Vista en Tabla Detallada"
+                                >
+                                    <Icon name="table"/> Tabla
+                                </button>
+                            </div>
+
+                            {/* Botones de Modales (Flex horizontal y ajustados en escritorio) */}
+                            <div className="flex flex-wrap gap-2 justify-center md:justify-end mt-2 md:mt-0 order-2 md:order-none">
+                                <button 
+                                    onClick={() => setShowPaletteModal(true)} 
+                                    className="bg-indigo-600 text-white px-3 py-1 rounded font-bold text-xs flex items-center justify-center gap-1 hover:bg-indigo-700 shadow"
+                                    title="Ver Paleta de Colores SPUN"
+                                >
+                                    <Icon name="palette"/> SPUN
+                                </button>
+                                <button 
+                                    onClick={() => setShowReceptionModal(true)} 
+                                    className="bg-yellow-600 text-white px-3 py-1 rounded font-bold text-xs flex items-center justify-center gap-1 hover:bg-yellow-700 shadow"
+                                    title="Registrar una entrada de stock"
+                                >
+                                    <Icon name="archive-box"/> ENTRADA
+                                </button>
+                                <button 
+                                    onClick={() => setShowReportModal(true)} 
+                                    className="bg-slate-700 text-white px-3 py-1 rounded font-bold text-xs flex items-center justify-center gap-1 hover:bg-slate-800 shadow"
+                                    title="Ver el informe de movimientos"
+                                >
+                                    <Icon name="file-text"/> INFORME
+                                </button>
+                            </div>
                         </div>
                     </header>
 
@@ -744,10 +774,10 @@
                             <Icon name={isEditing ? "edit" : "plus-circle"}/> 
                             {isEditing ? "Editar Hilatura" : "Agregar Nueva Hilatura"}
                         </h2>
-                        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-4">
+                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-4">
                             
                             {/* CAMPO GRUPO */}
-                            <div className="md:col-span-3">
+                            <div className="col-span-2 lg:col-span-1">
                                 <label className="block text-xs font-bold mb-1 text-indigo-700">GRUPO / CATEGORÍA</label>
                                 <input 
                                     list="groups" 
@@ -765,16 +795,16 @@
                                 </datalist>
                             </div>
 
-                            <div className="md:col-span-3">
+                            <div className="col-span-2 lg:col-span-1">
                                 <label className="block text-xs font-bold mb-1">MATERIAL / NOMBRE <span className="text-red-500">*</span></label>
                                 <input placeholder="Ej. NYLON 40/2" className="w-full border-2 border-slate-300 p-2 rounded uppercase font-bold" value={newItem.material} onChange={e => setNewItem({...newItem, material: e.target.value.toUpperCase()})} />
                             </div>
                             
-                            <div className="md:col-span-3">
+                            <div className="col-span-2 md:col-span-1 lg:col-span-1">
                                 <label className="block text-xs font-bold mb-1">NOMBRE COLOR</label>
                                 <input placeholder="Ej. ROJO FUEGO" className="w-full border p-2 rounded uppercase mb-2" value={newItem.color} onChange={e => setNewItem({...newItem, color: e.target.value.toUpperCase()})} />
                             </div>
-                            <div className="md:col-span-3">
+                            <div className="col-span-2 md:col-span-1 lg:col-span-1">
                                 <label className="block text-xs font-bold mb-1">COLOR (HEX)</label>
                                 <div className="flex items-center gap-1">
                                     <input 
@@ -792,26 +822,31 @@
                                     />
                                 </div>
                             </div>
-                            <div className="md:col-span-4">
-                                <label className="block text-xs font-bold mb-1 text-green-700">STOCK INICIAL (KG)</label>
-                                <input type="number" step="0.01" placeholder="0.00 (Opcional)" className="w-full border-2 border-green-200 bg-green-50 p-2 rounded font-black text-xl text-green-800" value={newItem.stock} onChange={e => setNewItem({...newItem, stock: e.target.value})} />
-                            </div>
-                            <div className="md:col-span-4">
-                                <label className="block text-xs font-bold mb-1 text-red-700">STOCK MÍNIMO (KG)</label>
-                                <input type="number" step="0.01" placeholder="10.00" className="w-full border-2 border-red-200 bg-red-50 p-2 rounded font-bold text-base text-red-800" value={newItem.minStock} onChange={e => setNewItem({...newItem, minStock: e.target.value})} />
-                            </div>
-                            <div className="md:col-span-4">
+                            
+                            <div className="col-span-2 md:col-span-1 lg:col-span-1">
                                 <label className="block text-xs font-bold mb-1">CALIBRE</label>
                                 <input placeholder="Ej. 150/48" className="w-full border p-2 rounded" value={newItem.calibre} onChange={e => setNewItem({...newItem, calibre: e.target.value})} />
                             </div>
-                            <div className="md:col-span-4">
+                            <div className="col-span-2 md:col-span-1 lg:col-span-1">
                                 <label className="block text-xs font-bold mb-1">ESTIRAJE / TÍTULO</label>
                                 <input placeholder="Opcional" className="w-full border p-2 rounded" value={newItem.estiraje} onChange={e => setNewItem({...newItem, estiraje: e.target.value})} />
                             </div>
-                            <div className="md:col-span-4">
+                            
+                            <div className="col-span-2 md:col-span-2 lg:col-span-2">
+                                <label className="block text-xs font-bold mb-1 text-green-700">STOCK INICIAL (KG)</label>
+                                <input type="number" step="0.01" placeholder="0.00 (Opcional)" className="w-full border-2 border-green-200 bg-green-50 p-2 rounded font-black text-xl text-green-800" value={newItem.stock} onChange={e => setNewItem({...newItem, stock: e.target.value})} />
+                            </div>
+                            
+                            <div className="col-span-2 md:col-span-1 lg:col-span-2">
+                                <label className="block text-xs font-bold mb-1 text-red-700">STOCK MÍNIMO (KG)</label>
+                                <input type="number" step="0.01" placeholder="10.00" className="w-full border-2 border-red-200 bg-red-50 p-2 rounded font-bold text-base text-red-800" value={newItem.minStock} onChange={e => setNewItem({...newItem, minStock: e.target.value})} />
+                            </div>
+                            
+                             <div className="col-span-2 md:col-span-1 lg:col-span-2">
                                 <label className="block text-xs font-bold mb-1">PROVEEDOR</label>
                                 <input placeholder="Nombre Proveedor" className="w-full border p-2 rounded uppercase" value={newItem.proveedor} onChange={e => setNewItem({...newItem, proveedor: e.target.value.toUpperCase()})} />
                             </div>
+
                         </div>
                         <div className="flex gap-2 justify-end">
                             {isEditing && <button onClick={() => { setIsEditing(null); setNewItem({ material: '', color: '', hex: '#000000', calibre: '', estiraje: '', stock: '', proveedor: '', group: '', minStock: '10.00' }); setOriginalItem(null);}} className="bg-slate-500 text-white px-4 py-2 rounded font-bold">CANCELAR</button>}
@@ -823,99 +858,184 @@
 
                     {/* LISTA AGRUPADA CON DESPLEGABLES */}
                     <div className="bg-white rounded-lg shadow overflow-hidden">
-                        <table className="inventory-table w-full text-left border-collapse">
-                            <thead className="bg-slate-800 text-white text-sm uppercase">
-                                <tr>
-                                    <th className="p-4">Material / Color</th>
-                                    <th className="p-4">Detalles Técnicos</th>
-                                    <th className="p-4 text-center">Stock (Kg)</th>
-                                    <th className="p-4 w-16 text-center">Bitácora</th>
-                                    <th className="p-4 text-right">Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody className="text-sm">
-                                {Object.keys(groupedItems).length === 0 && <tr><td colSpan="5" className="p-8 text-center text-slate-400">No hay hilaturas registradas.</td></tr>}
-                                
-                                {Object.keys(groupedItems).map(groupName => (
-                                    <React.Fragment key={groupName}>
-                                        {/* ENCABEZADO DE GRUPO (BOTÓN DESPLEGABLE) */}
-                                        <tr className="group-header-row">
-                                            <td colSpan="5" className="p-0 border-t-2 border-b-2 border-slate-300">
-                                                <button 
-                                                    onClick={() => toggleGroup(groupName)}
-                                                    className="w-full flex justify-between items-center p-3 bg-slate-200 hover:bg-slate-300 font-black text-sm text-indigo-800 transition"
-                                                >
-                                                    <div className="flex items-center gap-2">
-                                                        <Icon name={collapsedGroups[groupName] ? "chevron-right" : "chevron-down"} size={20}/> 
-                                                        <span>GRUPO: {groupName} ({groupedItems[groupName].length})</span>
-                                                    </div>
-                                                    <span className="text-xs font-normal text-slate-500">Haga click para {collapsedGroups[groupName] ? 'expandir' : 'colapsar'}</span>
-                                                </button>
-                                            </td>
-                                        </tr>
-                                        
-                                        {/* ITEMS DENTRO DEL GRUPO (MOSTRAR/OCULTAR) */}
-                                        {/* Solo renderiza si el grupo NO está colapsado */}
-                                        {!collapsedGroups[groupName] && groupedItems[groupName].map((item) => {
-                                            const stockFloat = parseFloat(item.stock) || 0;
-                                            const minStockFloat = parseFloat(item.minStock) || 10;
-                                            const isLow = stockFloat > 0 && stockFloat < minStockFloat;
-                                            const isZero = stockFloat === 0;
+                        
+                        {/* -------------------- VISTA DE TABLA -------------------- */}
+                        {viewMode === 'table' && (
+                            <table className="inventory-table w-full text-left border-collapse">
+                                <thead className="bg-slate-800 text-white text-sm uppercase">
+                                    <tr>
+                                        <th className="p-4">Material / Color</th>
+                                        <th className="p-4">Detalles Técnicos</th>
+                                        <th className="p-4 text-center">Stock (Kg)</th>
+                                        <th className="p-4 w-16 text-center">Bitácora</th>
+                                        <th className="p-4 text-right">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="text-sm">
+                                    {Object.keys(groupedItems).length === 0 && <tr><td colSpan="5" className="p-8 text-center text-slate-400">No hay hilaturas registradas.</td></tr>}
+                                    
+                                    {Object.keys(groupedItems).map(groupName => (
+                                        <React.Fragment key={groupName}>
+                                            {/* ENCABEZADO DE GRUPO (BOTÓN DESPLEGABLE) */}
+                                            <tr className="group-header-row">
+                                                <td colSpan="5" className="p-0 border-t-2 border-b-2 border-slate-300">
+                                                    <button 
+                                                        onClick={() => toggleGroup(groupName)}
+                                                        className="w-full flex justify-between items-center p-3 bg-slate-200 hover:bg-slate-300 font-black text-sm text-indigo-800 transition"
+                                                    >
+                                                        <div className="flex items-center gap-2">
+                                                            <Icon name={collapsedGroups[groupName] ? "chevron-right" : "chevron-down"} size={20}/> 
+                                                            <span>GRUPO: {groupName} ({groupedItems[groupName].length})</span>
+                                                        </div>
+                                                        <span className="text-xs font-normal text-slate-500">Haga click para {collapsedGroups[groupName] ? 'expandir' : 'colapsar'}</span>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                            
+                                            {/* ITEMS DENTRO DEL GRUPO (MOSTRAR/OCULTAR) - TABLE ROWS */}
+                                            {!collapsedGroups[groupName] && groupedItems[groupName].map((item) => {
+                                                const stockFloat = parseFloat(item.stock) || 0;
+                                                const minStockFloat = parseFloat(item.minStock) || 10;
+                                                const isLow = stockFloat > 0 && stockFloat < minStockFloat;
+                                                const isZero = stockFloat === 0;
 
-                                            return (
-                                                <tr key={item.id} className="border-b hover:bg-slate-50 transition">
-                                                    <td className="p-4">
-                                                        <div className="font-bold text-lg text-slate-800">{item.material}</div>
-                                                        <div className="flex flex-col gap-1 mt-2">
-                                                            {/* RECUADRO DE COLOR GRANDE Y PEGADO */}
+                                                return (
+                                                    <tr key={item.id} className="border-b hover:bg-slate-50 transition">
+                                                        <td className="p-4">
+                                                            <div className="font-bold text-lg text-slate-800">{item.material}</div>
+                                                            <div className="flex flex-col gap-1 mt-2">
+                                                                {/* RECUADRO DE COLOR GRANDE Y PEGADO */}
+                                                                <div 
+                                                                    className="w-full h-8 shadow-sm border border-slate-300 shrink-0" 
+                                                                    style={{ backgroundColor: item.hex || '#eee' }}
+                                                                    title={`Código HEX: ${item.hex}`}
+                                                                ></div>
+                                                                <div className="flex items-center justify-between">
+                                                                    <div className="text-xs text-slate-500 font-bold">{item.color}</div>
+                                                                    <div className="text-[10px] text-slate-400 font-mono">{item.hex}</div>
+                                                                </div>
+                                                                <div className="text-[10px] text-slate-400">{item.proveedor}</div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="p-4">
+                                                            {item.calibre && <div className="text-xs"><span className="font-bold">Calibre:</span> {item.calibre}</div>}
+                                                            {item.estiraje && <div className="text-xs"><span className="font-bold">Estiraje:</span> {item.estiraje}</div>}
+                                                        </td>
+                                                        <td className="p-4 text-center">
+                                                            <span className={`inline-block px-3 py-1 rounded font-black text-lg 
+                                                                ${isZero ? 'bg-slate-200 text-slate-600' : isLow ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'}
+                                                            `}>
+                                                                {isZero ? '0.00' : stockFloat.toFixed(2)} Kg
+                                                            </span>
+                                                            {isZero && <div className="text-[9px] text-slate-500 font-bold mt-1">SIN EXISTENCIA</div>}
+                                                            {isLow && <div className="text-[9px] text-red-500 font-bold mt-1">STOCK BAJO ({minStockFloat.toFixed(2)} Kg)</div>}
+                                                        </td>
+                                                        {/* COLUMNA DE BITÁCORA */}
+                                                        <td className="p-4 text-center">
+                                                            <button 
+                                                                onClick={() => openLog(item)} 
+                                                                className="p-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded border border-indigo-200" 
+                                                                title="Ver Bitácora de Movimientos"
+                                                            >
+                                                                <Icon name="history" size={16}/>
+                                                            </button>
+                                                        </td>
+                                                        <td className="p-4 text-right">
+                                                            <div className="flex gap-2 justify-end">
+                                                                <button onClick={() => startEdit(item)} className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded border border-blue-200" title="Editar detalles"><Icon name="pencil" size={16}/></button>
+                                                                <button onClick={() => handleDelete(item.id)} className="p-2 bg-red-50 text-red-600 hover:bg-red-100 rounded border border-red-200" title="Eliminar"><Icon name="trash-2" size={16}/></button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </React.Fragment>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                        
+                        {/* -------------------- VISTA DE CUADRÍCULA -------------------- */}
+                        {viewMode === 'grid' && (
+                            <div className="w-full text-left">
+                                {Object.keys(groupedItems).length === 0 && <div className="p-8 text-center text-slate-400">No hay hilaturas registradas.</div>}
+
+                                {Object.keys(groupedItems).map(groupName => (
+                                    <div key={groupName}>
+                                        {/* ENCABEZADO DE GRUPO (BOTÓN DESPLEGABLE) */}
+                                        <div className="group-header-row border-t-2 border-b-2 border-slate-300">
+                                            <button 
+                                                onClick={() => toggleGroup(groupName)}
+                                                className="w-full flex justify-between items-center p-3 bg-slate-200 hover:bg-slate-300 font-black text-sm text-indigo-800 transition"
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    <Icon name={collapsedGroups[groupName] ? "chevron-right" : "chevron-down"} size={20}/> 
+                                                    <span>GRUPO: {groupName} ({groupedItems[groupName].length})</span>
+                                                </div>
+                                                <span className="text-xs font-normal text-slate-500">Haga click para {collapsedGroups[groupName] ? 'expandir' : 'colapsar'}</span>
+                                            </button>
+                                        </div>
+
+                                        {/* ITEMS DENTRO DEL GRUPO (MOSTRAR/OCULTAR) - GRID CARDS */}
+                                        {!collapsedGroups[groupName] && (
+                                            <div className="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                                                {groupedItems[groupName].map((item) => {
+                                                    const stockFloat = parseFloat(item.stock) || 0;
+                                                    const minStockFloat = parseFloat(item.minStock) || 10;
+                                                    const isLow = stockFloat > 0 && stockFloat < minStockFloat;
+                                                    const isZero = stockFloat === 0;
+
+                                                    return (
+                                                        <div key={item.id} className="bg-white border border-slate-200 rounded-lg shadow-md p-3 flex flex-col hover:shadow-lg transition">
+                                                            
+                                                            {/* COLOR THUMBNAIL */}
                                                             <div 
-                                                                className="w-full h-8 shadow-sm border border-slate-300 shrink-0" 
+                                                                className="h-10 rounded-t-lg shadow-inner border border-slate-300 shrink-0 mb-2 -mt-3 -mx-3" 
                                                                 style={{ backgroundColor: item.hex || '#eee' }}
                                                                 title={`Código HEX: ${item.hex}`}
                                                             ></div>
-                                                            <div className="flex items-center justify-between">
-                                                                <div className="text-xs text-slate-500 font-bold">{item.color}</div>
-                                                                <div className="text-[10px] text-slate-400 font-mono">{item.hex}</div>
+
+                                                            {/* HEADER */}
+                                                            <div className="font-bold text-base text-slate-800 truncate" title={item.material}>{item.material}</div>
+                                                            <div className="text-xs text-slate-500 font-bold mb-2 truncate" title={item.color}>{item.color}</div>
+
+                                                            {/* STOCK */}
+                                                            <div className="flex flex-col items-center justify-center p-2 rounded-lg my-2 border">
+                                                                <span className={`font-black text-xl 
+                                                                    ${isZero ? 'text-slate-600' : isLow ? 'text-red-600' : 'text-green-700'}
+                                                                `}>
+                                                                    {stockFloat.toFixed(2)} Kg
+                                                                </span>
+                                                                {isZero && <div className="text-[9px] text-slate-500 font-bold mt-1">SIN EXISTENCIA</div>}
+                                                                {isLow && <div className="text-[9px] text-red-500 font-bold mt-1">STOCK BAJO ({minStockFloat.toFixed(2)} Kg)</div>}
                                                             </div>
-                                                            <div className="text-[10px] text-slate-400">{item.proveedor}</div>
+
+                                                            {/* DETAILS / ACTIONS */}
+                                                            <div className="text-xs text-slate-400 mt-auto pt-2 border-t">
+                                                                {item.calibre && <div><span className="font-bold">Calibre:</span> {item.calibre}</div>}
+                                                                {item.proveedor && <div className="truncate"><span className="font-bold">Prov:</span> {item.proveedor}</div>}
+                                                            </div>
+
+                                                            <div className="flex gap-2 justify-between mt-3">
+                                                                <button 
+                                                                    onClick={() => openLog(item)} 
+                                                                    className="p-1.5 w-full bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded border border-indigo-200 text-xs flex items-center justify-center gap-1" 
+                                                                    title="Ver Bitácora de Movimientos"
+                                                                >
+                                                                    <Icon name="history" size={14}/> Bitácora
+                                                                </button>
+                                                                <button onClick={() => startEdit(item)} className="p-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded border border-blue-200" title="Editar detalles"><Icon name="pencil" size={14}/></button>
+                                                                <button onClick={() => handleDelete(item.id)} className="p-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded border border-red-200" title="Eliminar"><Icon name="trash-2" size={14}/></button>
+                                                            </div>
                                                         </div>
-                                                    </td>
-                                                    <td className="p-4">
-                                                        {item.calibre && <div className="text-xs"><span className="font-bold">Calibre:</span> {item.calibre}</div>}
-                                                        {item.estiraje && <div className="text-xs"><span className="font-bold">Estiraje:</span> {item.estiraje}</div>}
-                                                    </td>
-                                                    <td className="p-4 text-center">
-                                                        <span className={`inline-block px-3 py-1 rounded font-black text-lg 
-                                                            ${isZero ? 'bg-slate-200 text-slate-600' : isLow ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'}
-                                                        `}>
-                                                            {isZero ? '0.00' : stockFloat.toFixed(2)} Kg
-                                                        </span>
-                                                        {isZero && <div className="text-[9px] text-slate-500 font-bold mt-1">SIN EXISTENCIA</div>}
-                                                        {isLow && <div className="text-[9px] text-red-500 font-bold mt-1">STOCK BAJO ({minStockFloat.toFixed(2)} Kg)</div>}
-                                                    </td>
-                                                    {/* NUEVA COLUMNA DE BITÁCORA */}
-                                                    <td className="p-4 text-center">
-                                                        <button 
-                                                            onClick={() => openLog(item)} 
-                                                            className="p-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded border border-indigo-200" 
-                                                            title="Ver Bitácora de Movimientos"
-                                                        >
-                                                            <Icon name="history" size={16}/>
-                                                        </button>
-                                                    </td>
-                                                    <td className="p-4 text-right">
-                                                        <div className="flex gap-2 justify-end">
-                                                            <button onClick={() => startEdit(item)} className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded border border-blue-200" title="Editar detalles"><Icon name="pencil" size={16}/></button>
-                                                            <button onClick={() => handleDelete(item.id)} className="p-2 bg-red-50 text-red-600 hover:bg-red-100 rounded border border-red-200" title="Eliminar"><Icon name="trash-2" size={16}/></button>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </React.Fragment>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
                                 ))}
-                            </tbody>
-                        </table>
+                            </div>
+                        )}
                     </div>
                 </div>
             );
